@@ -109,8 +109,20 @@ async function queryOllama(
       const msg = String(err).toLowerCase();
       const isQuota = msg.includes("429") || msg.includes("quota") || msg.includes("rate") || msg.includes("exhausted") || msg.includes("resource_exhausted");
       if (isQuota) {
-        logger.warn({ err: String(err) }, "FAWER Flash V3.0 sem quota, caindo pro Beta");
-        return queryLocalOllama(systemPrompt, memoryKey, userQuery);
+        logger.warn({ err: String(err) }, "FAWER Flash V3.0 sem quota, tentando V2.01");
+        try {
+          const v2response = await queryGemini(systemPrompt, memoryKey, userQuery);
+          return `> ⚠️ V3 sem quota, respondi no V2.01.\n\n${v2response}`;
+        } catch (err2) {
+          const msg2 = String(err2).toLowerCase();
+          const isQuota2 = msg2.includes("429") || msg2.includes("quota") || msg2.includes("rate") || msg2.includes("exhausted") || msg2.includes("resource_exhausted");
+          if (isQuota2) {
+            logger.warn({ err: String(err2) }, "V2.01 sem quota, caindo pro Beta");
+            const betaResponse = await queryLocalOllama(systemPrompt, memoryKey, userQuery);
+            return `> ⚠️ V3 e V2 sem quota, respondi no Beta.\n\n${betaResponse}`;
+          }
+          throw err2;
+        }
       }
       throw err;
     }
