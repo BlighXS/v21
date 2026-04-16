@@ -31,9 +31,13 @@ const SPINNER_LABEL = "pensando";
 
 async function runWithSpinner(
   replyTarget: import("discord.js").Message,
-  task: () => Promise<string>
+  task: (
+    spinnerMsg: import("discord.js").Message,
+    setStatusText: (text: string | null) => void
+  ) => Promise<string>
 ): Promise<{ result: string; spinnerMsg: import("discord.js").Message }> {
   let frame = 0;
+  let statusText: string | null = null;
   const spinnerMsg = await replyTarget.reply(`⚙️ ${SPINNER_FRAMES[0]} ${SPINNER_LABEL}...`);
 
   replyTarget.channel.sendTyping().catch(() => {});
@@ -41,11 +45,13 @@ async function runWithSpinner(
 
   const spinnerInterval = setInterval(async () => {
     frame = (frame + 1) % SPINNER_FRAMES.length;
-    try { await spinnerMsg.edit(`⚙️ ${SPINNER_FRAMES[frame]} ${SPINNER_LABEL}...`); } catch {}
+    try { await spinnerMsg.edit(statusText ?? `⚙️ ${SPINNER_FRAMES[frame]} ${SPINNER_LABEL}...`); } catch {}
   }, 700);
 
   try {
-    const result = await task();
+    const result = await task(spinnerMsg, (text) => {
+      statusText = text;
+    });
     return { result, spinnerMsg };
   } finally {
     clearInterval(spinnerInterval);
@@ -104,21 +110,42 @@ async function queryFwp(
   return queryOllama(systemPrompt, userId, userQuery);
 }
 
-function formatFwpError(error: unknown): string {
+function isFwpOverloadError(error: unknown): boolean {
   const raw = error instanceof Error ? error.message : String(error);
   const lower = raw.toLowerCase();
-  const overloaded =
+  return (
     lower.includes("503") ||
     lower.includes("unavailable") ||
     lower.includes("high demand") ||
     lower.includes("overloaded") ||
-    lower.includes("rate limit");
+    lower.includes("rate limit")
+  );
+}
 
-  if (overloaded) {
+function formatFwpError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (isFwpOverloadError(error)) {
     return "CPU cheia, modelo passando fome de memória RAM. Tenta de novo daqui a pouco que eu volto menos miserável.";
   }
 
   return raw || "Erro desconhecido";
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function retryOnceAfterOverload(
+  task: () => Promise<string>,
+  onRetry: () => Promise<void>
+): Promise<string> {
+  try {
+    return await task();
+  } catch (error) {
+    if (!isFwpOverloadError(error)) throw error;
+    await onRetry();
+    return task();
+  }
 }
 
 // kept for compatibility — free mode still uses it
@@ -156,7 +183,14 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
 
     const { result: rawReply, spinnerMsg } = await runWithSpinner(
       message,
-      () => queryOllama(systemPrompt, memoryKey, userQuery)
+      (_spinnerMsg, setStatusText) => retryOnceAfterOverload(
+        () => queryOllama(systemPrompt, memoryKey, userQuery),
+        async () => {
+          setStatusText(`${formatFwpError(new Error("503 unavailable"))}\n\nVou tentar cobrar a resposta de novo em 10s...`);
+          await wait(10_000);
+          setStatusText(null);
+        }
+      )
     );
 
     const actionReports = await executeFwpActions(message, rawReply);
@@ -681,7 +715,14 @@ const event: BotEvent = {
 
         const { result: rawResponse, spinnerMsg } = await runWithSpinner(
           message,
-          () => queryFwp(systemPrompt, message.author.id, fullQuery)
+          (_thinkingMessage, setStatusText) => retryOnceAfterOverload(
+            () => queryFwp(systemPrompt, message.author.id, fullQuery),
+            async () => {
+              setStatusText(`${formatFwpError(new Error("503 unavailable"))}\n\nVou tentar cobrar a resposta de novo em 10s...`);
+              await wait(10_000);
+              setStatusText(null);
+            }
+          )
         );
 
         const actionReports = await executeFwpActions(message, rawResponse);
