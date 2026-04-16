@@ -6,7 +6,7 @@ import { isAdminMember } from "../utils/permissions.js";
 import { logger } from "../utils/logger.js";
 import { buildEmbed, buildEmbedFields, truncate, formatUptime, formatBytes } from "../utils/format.js";
 import { handleTrainerCommand } from "../training/trainer.js";
-import { buildTrainingPrompt } from "../training/store.js";
+import { loadTrainingData } from "../training/store.js";
 import { handleServerSetupCommand } from "../setup/serverSetup.js";
 import { handleBackupCommand } from "../backup/backup.js";
 import { searchTracks } from "../music/spotify.js";
@@ -16,18 +16,15 @@ function canRestart(member: GuildMember): boolean {
   return member.roles.cache.some((role) => config.RESTART_ROLE_IDS.includes(role.id));
 }
 
-async function queryFwp(query: string): Promise<string> {
+async function queryFwp(systemPrompt: string, userQuery: string): Promise<string> {
   const { Ollama } = await import("ollama");
   const ollama = new Ollama({ host: config.OLLAMA_HOST });
 
   const response = await ollama.chat({
     model: config.OLLAMA_MODEL,
     messages: [
-      {
-        role: "system",
-        content: "Voc\u00ea \u00e9 o Fawer\u2019Bot, assistente do servidor Fawer Blight. Responda sempre em PT-BR de forma \u00fatil, direta e alinhada ao servidor."
-      },
-      { role: "user", content: query }
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userQuery }
     ]
   });
 
@@ -305,8 +302,9 @@ const event: BotEvent = {
       const start = Date.now();
 
       try {
-        const prompt = await buildTrainingPrompt(query);
-        const response = await queryFwp(prompt);
+        const trainingData = await loadTrainingData();
+        const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
+        const response = await queryFwp(systemPrompt, query);
         const trimmed = truncate(response, 1900);
         const embed = buildEmbed("Fawer IA", trimmed, "action");
         await temp.edit({ content: "", embeds: [embed] });
