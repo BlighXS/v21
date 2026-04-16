@@ -1,3 +1,4 @@
+import { AttachmentBuilder } from "discord.js";
 import type { GuildMember } from "discord.js";
 import type { BotEvent } from "../utils/events.js";
 import { safeFetch } from "../utils/net.js";
@@ -10,25 +11,35 @@ import { loadTrainingData } from "../training/store.js";
 import { handleServerSetupCommand } from "../setup/serverSetup.js";
 import { handleBackupCommand } from "../backup/backup.js";
 import { searchTracks } from "../music/spotify.js";
+import { loadUserMemory, appendToUserMemory, clearUserMemory } from "../ai/memory.js";
+import { extractCodeBlocks, hasCodeBlocks, createZip, readAttachmentText, isTextAttachment, isImageAttachment } from "../ai/fileOps.js";
+import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
 
 function canRestart(member: GuildMember): boolean {
   if (config.RESTART_ROLE_IDS.length === 0) return isAdminMember(member);
   return member.roles.cache.some((role) => config.RESTART_ROLE_IDS.includes(role.id));
 }
 
-async function queryFwp(systemPrompt: string, userQuery: string): Promise<string> {
+async function queryFwp(
+  systemPrompt: string,
+  userId: string,
+  userQuery: string
+): Promise<string> {
   const { Ollama } = await import("ollama");
   const ollama = new Ollama({ host: config.OLLAMA_HOST });
 
-  const response = await ollama.chat({
-    model: config.OLLAMA_MODEL,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userQuery }
-    ]
-  });
+  const history = await loadUserMemory(userId);
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: systemPrompt },
+    ...history.map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: userQuery }
+  ];
 
-  return response.message?.content?.trim() || "Sem resposta gerada.";
+  const response = await ollama.chat({ model: config.OLLAMA_MODEL, messages });
+  const reply = response.message?.content?.trim() || "Sem resposta gerada.";
+
+  await appendToUserMemory(userId, userQuery, reply);
+  return reply;
 }
 
 const event: BotEvent = {
@@ -75,10 +86,13 @@ const event: BotEvent = {
           inline: true
         },
         {
-          name: "\u2022 M\u00fasica & IA",
+          name: "\u2022 Fawers IA",
           value: [
+            `\`${prefix}fwp <msg>\` \u2014 Chat com a IA`,
+            `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a IA`,
+            `\`${prefix}fwp limpar\` \u2014 Apaga mem\u00f3ria`,
+            `\`${prefix}projeto <tipo> [nome]\` \u2014 Gera projeto ZIP`,
             `\`${prefix}spf <pesquisa>\` \u2014 Busca Spotify`,
-            `\`${prefix}fwp <pergunta>\` \u2014 Consulta IA Fawer`,
             `\`${prefix}trainer\` \u2014 Treinar a IA`
           ].join("\n"),
           inline: true
@@ -291,33 +305,121 @@ const event: BotEvent = {
     }
 
     if (command === "fwp") {
-      const query = parts.join(" ");
-      if (!query.trim()) {
-        const embed = buildEmbed("Uso correto", `Uso: \`${prefix}fwp <pergunta>\``, "info");
+      const sub = parts[0]?.toLowerCase();
+
+      if (sub === "limpar") {
+        await clearUserMemory(message.author.id);
+        const embed = buildEmbed("Fawers", "Memória de conversa apagada.", "ok");
         await message.reply({ embeds: [embed] });
         return;
       }
 
-      const temp = await message.reply("\u{1F9E0} Consultando a Fawer IA...");
+      const userText = parts.join(" ").trim();
+      const attachments = [...message.attachments.values()];
+
+      if (!userText && attachments.length === 0) {
+        const fields = [
+          { name: "Chat normal", value: `\`${prefix}fwp <mensagem>\``, inline: false },
+          { name: "Enviar arquivo", value: `\`${prefix}fwp [mensagem]\` + anexo`, inline: false },
+          { name: "Limpar memória", value: `\`${prefix}fwp limpar\``, inline: false }
+        ];
+        const embed = buildEmbedFields("Fawers — Uso", fields, "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      const temp = await message.reply("\u{1F9E0} Fawers processando...");
       const start = Date.now();
 
       try {
         const trainingData = await loadTrainingData();
         const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
-        const response = await queryFwp(systemPrompt, query);
+
+        let fullQuery = userText;
+
+        for (const att of attachments) {
+          const fname = att.name ?? "arquivo";
+          if (isTextAttachment(fname)) {
+            const content = await readAttachmentText(att.url);
+            fullQuery += `\n\n[Arquivo enviado: ${fname}]\n\`\`\`\n${content.slice(0, 6000)}\n\`\`\``;
+          } else if (isImageAttachment(fname)) {
+            fullQuery += `\n\n[Imagem enviada: ${fname} — análise de imagem não suportada neste modelo]`;
+          } else {
+            fullQuery += `\n\n[Arquivo binário enviado: ${fname} — não é possível ler o conteúdo]`;
+          }
+        }
+
+        if (!fullQuery.trim()) fullQuery = "Analisa o arquivo enviado.";
+
+        const response = await queryFwp(systemPrompt, message.author.id, fullQuery);
+
+        const files: AttachmentBuilder[] = [];
+
+        if (hasCodeBlocks(response)) {
+          const blocks = extractCodeBlocks(response);
+          if (blocks.length === 1) {
+            const buf = Buffer.from(blocks[0].code, "utf8");
+            files.push(new AttachmentBuilder(buf, { name: blocks[0].filename }));
+          } else if (blocks.length > 1) {
+            const zipBuf = createZip(blocks.map((b) => ({ filename: b.filename, content: b.code })));
+            files.push(new AttachmentBuilder(zipBuf, { name: "fawers_arquivos.zip" }));
+          }
+        }
+
         const trimmed = truncate(response, 1900);
-        const embed = buildEmbed("Fawer IA", trimmed, "action");
-        await temp.edit({ content: "", embeds: [embed] });
-        logger.info({
-          type: "prefix",
-          command: "fwp",
-          durationMs: Date.now() - start
-        }, "Fwp executado");
+        const embed = buildEmbed("Fawers", trimmed, "action");
+
+        await temp.edit({ content: "", embeds: [embed], files });
+        logger.info({ command: "fwp", durationMs: Date.now() - start, files: files.length }, "Fwp executado");
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Erro desconhecido";
-        const embed = buildEmbed("Falha \u2014 Fawer IA", msg, "error");
+        const embed = buildEmbed("Falha — Fawers", msg, "error");
         await temp.edit({ content: "", embeds: [embed] });
         logger.error({ error, command: "fwp" }, "Fwp falhou");
+      }
+      return;
+    }
+
+    if (command === "projeto") {
+      const typeName = parts.shift()?.toLowerCase();
+      const projectName = parts.join(" ").trim() || "meu_projeto";
+
+      if (!typeName) {
+        const fields = [
+          { name: "Uso", value: `\`${prefix}projeto <tipo> [nome]\``, inline: false },
+          { name: "Tipos disponíveis", value: "`python` `c` `cpp` `node` `rust` `asm`", inline: false },
+          { name: "Exemplo", value: `\`${prefix}projeto python meu_bypass\``, inline: false }
+        ];
+        const embed = buildEmbedFields("Fawers — Projeto Base", fields, "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      const type = resolveProjectType(typeName);
+      if (!type) {
+        const embed = buildEmbed("Tipo inválido", `Tipo \`${typeName}\` não reconhecido. Use: python, c, cpp, node, rust, asm`, "warn");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      const temp = await message.reply("📦 Gerando projeto base...");
+      try {
+        const templateFiles = getProjectTemplate(type, projectName);
+        const zipBuf = createZip(templateFiles);
+        const zipFile = new AttachmentBuilder(zipBuf, { name: `${projectName}.zip` });
+
+        const fileList = templateFiles.map((f) => `\`${f.filename}\``).join(", ");
+        const embed = buildEmbed(
+          `Projeto — ${projectName}`,
+          `Tipo: \`${type}\`\nArquivos: ${fileList}`,
+          "ok"
+        );
+        await temp.edit({ content: "", embeds: [embed], files: [zipFile] });
+        logger.info({ command: "projeto", type, name: projectName }, "Projeto gerado");
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido";
+        const embed = buildEmbed("Falha", msg, "error");
+        await temp.edit({ content: "", embeds: [embed] });
       }
       return;
     }
