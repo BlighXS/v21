@@ -15,6 +15,7 @@ import { loadUserMemory, appendToUserMemory, clearUserMemory } from "../ai/memor
 import { extractCodeBlocks, hasCodeBlocks, createZip, readAttachmentText, isTextAttachment, isImageAttachment } from "../ai/fileOps.js";
 import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } from "../ai/binaryAnalysis.js";
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
+import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 
 function canRestart(member: GuildMember): boolean {
   if (config.RESTART_ROLE_IDS.length === 0) return isAdminMember(member);
@@ -43,12 +44,67 @@ async function queryFwp(
   return reply;
 }
 
+async function handleFreeMode(message: import("discord.js").Message): Promise<boolean> {
+  const inFreeMode = await isFreeModeActive(message.channelId);
+  if (!inFreeMode) return false;
+
+  const prefix = config.PREFIX;
+  const content = message.content.trim();
+
+  // Let prefix commands be handled normally (don't intercept them here)
+  if (content.startsWith(prefix)) return false;
+
+  try {
+    const trainingData = await loadTrainingData();
+    const basePrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
+    const systemPrompt = basePrompt + FREE_MODE_SYSTEM_SUFFIX;
+
+    const author = message.author;
+    const display = message.member?.displayName ?? author.username;
+    const userQuery = `[${display} (<@${author.id}>)]: ${content || "(mensagem sem texto)"}`;
+
+    const memoryKey = `channel_${message.channelId}`;
+    const history = await loadUserMemory(memoryKey);
+
+    const { Ollama } = await import("ollama");
+    const ollama = new Ollama({ host: config.OLLAMA_HOST });
+
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: systemPrompt },
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: userQuery }
+    ];
+
+    const response = await ollama.chat({ model: config.OLLAMA_MODEL, messages });
+    const reply = response.message?.content?.trim() || "[SILENT]";
+
+    await appendToUserMemory(memoryKey, userQuery, reply);
+
+    if (reply.startsWith("[SILENT]")) {
+      logger.info({ channel: message.channelId }, "Free mode: Fawers optou por silêncio");
+      return true;
+    }
+
+    const trimmed = truncate(reply, 1900);
+    await message.channel.send(trimmed);
+    logger.info({ channel: message.channelId, author: author.id }, "Free mode: resposta enviada");
+  } catch (err) {
+    logger.error({ err }, "Free mode: falha ao gerar resposta");
+  }
+
+  return true;
+}
+
 const event: BotEvent = {
   name: "messageCreate",
   async execute(message) {
     if (!config.ENABLE_PREFIX) return;
     if (!message.guild) return;
     if (message.author.bot) return;
+
+    // Free mode: intercept non-command messages in unlocked channels
+    const handledByFreeMode = await handleFreeMode(message);
+    if (handledByFreeMode) return;
 
     const prefix = config.PREFIX;
     if (!message.content.startsWith(prefix)) return;
@@ -92,6 +148,8 @@ const event: BotEvent = {
             `\`${prefix}fwp <msg>\` \u2014 Chat com a IA`,
             `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a IA`,
             `\`${prefix}fwp limpar\` \u2014 Apaga mem\u00f3ria`,
+            `\`${prefix}ufwp\` \u2014 Desbloqueia a IA no canal`,
+            `\`${prefix}lfwp\` \u2014 Bloqueia a IA de volta`,
             `\`${prefix}pe\` + .exe/.dll \u2014 An\u00e1lise de bin\u00e1rio PE`,
             `\`${prefix}projeto <tipo> [nome]\` \u2014 Gera projeto ZIP`,
             `\`${prefix}spf <pesquisa>\` \u2014 Busca Spotify`,
@@ -303,6 +361,65 @@ const event: BotEvent = {
         const embed = buildEmbed("Falha no Spotify", msg, "error");
         await temp.edit({ content: "", embeds: [embed] });
       }
+      return;
+    }
+
+    if (command === "ufwp") {
+      if (!isFreeModeOwner(message.author.id)) {
+        const embed = buildEmbed("Acesso negado", "Apenas o dono pode ativar o modo livre.", "warn");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+      const already = await isFreeModeActive(message.channelId);
+      if (already) {
+        const embed = buildEmbed("Fawers — Modo Livre", "A IA já está desbloqueada neste canal.", "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+      await enableFreeMode(message.channelId);
+      const trainingData = await loadTrainingData();
+      const systemPrompt = (trainingData.compiledIdentity || trainingData.baseIdentity) + FREE_MODE_SYSTEM_SUFFIX;
+      const intro = await (async () => {
+        try {
+          const { Ollama } = await import("ollama");
+          const ollama = new Ollama({ host: config.OLLAMA_HOST });
+          const res = await ollama.chat({
+            model: config.OLLAMA_MODEL,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença." }
+            ]
+          });
+          return res.message?.content?.trim() || null;
+        } catch {
+          return null;
+        }
+      })();
+      const embed = buildEmbed("Fawers — Modo Livre ativado", "A IA está desbloqueada neste canal. Ela vai interagir por conta própria.", "ok");
+      await message.reply({ embeds: [embed] });
+      if (intro && !intro.startsWith("[SILENT]")) {
+        await message.channel.send(truncate(intro, 1900));
+      }
+      logger.info({ channel: message.channelId, by: message.author.id }, "Free mode ativado");
+      return;
+    }
+
+    if (command === "lfwp") {
+      if (!isFreeModeOwner(message.author.id)) {
+        const embed = buildEmbed("Acesso negado", "Apenas o dono pode desativar o modo livre.", "warn");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+      const active = await isFreeModeActive(message.channelId);
+      if (!active) {
+        const embed = buildEmbed("Fawers — Modo Livre", "A IA já está no modo normal neste canal.", "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+      await disableFreeMode(message.channelId);
+      const embed = buildEmbed("Fawers — Modo Normal restaurado", "A IA voltou ao modo normal. Use `;fwp` para falar com ela.", "ok");
+      await message.reply({ embeds: [embed] });
+      logger.info({ channel: message.channelId, by: message.author.id }, "Free mode desativado");
       return;
     }
 
