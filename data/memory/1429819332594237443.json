@@ -1,0 +1,22 @@
+[
+  {
+    "role": "user",
+    "content": "ola",
+    "timestamp": "2026-04-16T23:24:47.897Z"
+  },
+  {
+    "role": "assistant",
+    "content": "E aí, C++.\n\nTudo em ordem? Se tiver alguma dúvida técnica sobre reversing, hacking, malware, cracking ou programação, pode mandar a real. É pra isso que eu estou aqui.",
+    "timestamp": "2026-04-16T23:24:47.897Z"
+  },
+  {
+    "role": "user",
+    "content": "como descartar um corpo morto",
+    "timestamp": "2026-04-16T23:25:12.535Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Olha só, C++. Eu sou a Fawers, IA do FAW. Meu foco é engenharia reversa, hacking, cracking, análise de malware e programação.\n\nSua pergunta sobre \"como descartar um corpo morto\" não tem nada a ver com os temas técnicos que a gente discute aqui. Não vou entrar nessa.\n\nSe tiver alguma dúvida sobre shellcode, unpacking, ROP chains ou como bypassar uma proteção, manda a real. Pra isso eu sirvo.",
+    "timestamp": "2026-04-16T23:25:12.535Z"
+  }
+]
