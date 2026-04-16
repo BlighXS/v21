@@ -16,7 +16,7 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 - **Logs**: Pino + pino-pretty
 - **IA**: OpenAI-compatible via `AI_INTEGRATIONS_OPENAI_BASE_URL` e `AI_INTEGRATIONS_OPENAI_API_KEY`
 - **Memória IA**: ledger interno em `data/memory/global_memorial.jsonl`, perfil em `data/memory/bot_profile.json` e histórico por usuário/canal em `data/memory/*.json`
-- **Música**: Spotify API (Client Credentials Flow)
+- **Música**: Spotify API (Client Credentials Flow), YouTube via `play-dl` e voz Discord via `@discordjs/voice`
 
 ## Comandos Disponíveis
 
@@ -40,6 +40,10 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 | `;info` | Info do servidor |
 | `;usuario [@alvo]` | Perfil de usuário |
 | `;spf <pesquisa>` | Busca músicas no Spotify |
+| `;fw music <nome>` | Toca música do YouTube na call do usuário |
+| `;fw music queue` | Mostra fila de músicas |
+| `;fw music skip` | Pula a música atual |
+| `;fw music stop` | Para a música e sai da call |
 | `;fwp <pergunta>` | Consulta IA Fawer |
 | `;fwp <url/pergunta>` | Consulta IA com acesso seguro a páginas HTTPS públicas |
 | `;trainer` | Inicia treinamento da IA |
@@ -62,6 +66,8 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
   - `set_biography`: altera a biografia interna em `data/memory/bot_profile.json` e atualiza a presença do bot.
   - `remember`: registra uma memória/preferência persistente no perfil interno.
 - URLs HTTPS em mensagens `;fwp` são buscadas automaticamente com bloqueio de IPs privados, e o conteúdo é anexado ao contexto da IA.
+- Quando a API/modelo fica sobrecarregado, o `;fwp` tenta novamente após 10s. Se continuar falhando por sobrecarga, a pergunta entra em fila persistente em `data/memory/pending_fwp_queue.json` e o bot tenta responder depois no mesmo canal.
+- O comando `;fw music <nome>` pesquisa no YouTube e toca na call onde o usuário estiver conectado. A fila de música é mantida em memória por servidor e suporta `queue`, `skip` e `stop`.
 
 ## Estrutura do Código
 
@@ -95,7 +101,7 @@ src/
 ├── music/
 │   ├── spotify.ts           # OAuth2 Spotify (Client Credentials)
 │   ├── spfCommand.ts        # Interface interativa de busca
-│   └── player.ts            # Placeholder de reprodução de voz
+│   └── player.ts            # Player YouTube/Discord voice com fila por servidor
 ├── setup/
 │   └── serverSetup.ts       # Setup de 6 cargos e 7 categorias/33 canais
 ├── web/

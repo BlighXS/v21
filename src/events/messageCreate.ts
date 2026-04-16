@@ -1,5 +1,7 @@
 import { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import type { GuildMember } from "discord.js";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { BotEvent } from "../utils/events.js";
 import { safeFetch } from "../utils/net.js";
 import { config } from "../utils/config.js";
@@ -11,6 +13,7 @@ import { loadTrainingData } from "../training/store.js";
 import { handleServerSetupCommand } from "../setup/serverSetup.js";
 import { handleBackupCommand } from "../backup/backup.js";
 import { searchTracks } from "../music/spotify.js";
+import { getMusicQueue, playYoutubeMusic, skipMusic, stopMusic } from "../music/player.js";
 import { loadUserMemory, appendToUserMemory, clearUserMemory } from "../ai/memory.js";
 import { extractCodeBlocks, hasCodeBlocks, createZip, readAttachmentText, isTextAttachment, isImageAttachment } from "../ai/fileOps.js";
 import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } from "../ai/binaryAnalysis.js";
@@ -148,6 +151,92 @@ async function retryOnceAfterOverload(
   }
 }
 
+interface PendingFwpRequest {
+  id: string;
+  guildId: string;
+  channelId: string;
+  userId: string;
+  systemPrompt: string;
+  memoryKey: string;
+  query: string;
+  attempts: number;
+  nextRunAt: number;
+  createdAt: string;
+}
+
+const PENDING_FWP_FILE = path.join(process.cwd(), "data", "memory", "pending_fwp_queue.json");
+let pendingFwpQueue: PendingFwpRequest[] = [];
+let pendingLoaded = false;
+let pendingTimer: NodeJS.Timeout | null = null;
+
+async function loadPendingFwpQueue(): Promise<void> {
+  if (pendingLoaded) return;
+  pendingLoaded = true;
+  try {
+    const raw = await readFile(PENDING_FWP_FILE, "utf8");
+    pendingFwpQueue = JSON.parse(raw) as PendingFwpRequest[];
+  } catch {
+    pendingFwpQueue = [];
+  }
+}
+
+async function savePendingFwpQueue(): Promise<void> {
+  await mkdir(path.dirname(PENDING_FWP_FILE), { recursive: true });
+  await writeFile(PENDING_FWP_FILE, JSON.stringify(pendingFwpQueue, null, 2), "utf8");
+}
+
+async function enqueuePendingFwp(message: import("discord.js").Message, systemPrompt: string, memoryKey: string, query: string): Promise<void> {
+  await loadPendingFwpQueue();
+  const item: PendingFwpRequest = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    guildId: message.guildId ?? "",
+    channelId: message.channelId,
+    userId: message.author.id,
+    systemPrompt,
+    memoryKey,
+    query,
+    attempts: 0,
+    nextRunAt: Date.now() + 60_000,
+    createdAt: new Date().toISOString()
+  };
+  pendingFwpQueue.push(item);
+  await savePendingFwpQueue();
+  await recordMessageEvent("system", message, "Pergunta FWP enviada para fila de retry persistente.", { queueId: item.id });
+}
+
+function startPendingFwpWorker(client: import("discord.js").Client): void {
+  if (pendingTimer) return;
+  pendingTimer = setInterval(async () => {
+    await loadPendingFwpQueue();
+    const now = Date.now();
+    const due = pendingFwpQueue.filter((item) => item.nextRunAt <= now).slice(0, 2);
+    for (const item of due) {
+      try {
+        const channel = await client.channels.fetch(item.channelId).catch(() => null);
+        if (!channel?.isTextBased() || !("send" in channel)) {
+          pendingFwpQueue = pendingFwpQueue.filter((queued) => queued.id !== item.id);
+          continue;
+        }
+
+        item.attempts++;
+        const raw = await queryOllama(item.systemPrompt, item.memoryKey, item.query);
+        const clean = stripFwpActionBlocks(raw);
+        const embed = buildEmbed("Fawers — resposta atrasada", `<@${item.userId}> consegui cobrar a resposta que ficou devendo:\n\n${truncate(clean, 1700)}`, "action");
+        await channel.send({ embeds: [embed] });
+        pendingFwpQueue = pendingFwpQueue.filter((queued) => queued.id !== item.id);
+        await recordMemorialEvent({ type: "ai_response", channelId: item.channelId, guildId: item.guildId, userId: item.userId, content: clean, metadata: { queued: true, queueId: item.id } });
+      } catch (error) {
+        item.nextRunAt = Date.now() + Math.min(10 * 60_000, 60_000 * Math.max(1, item.attempts + 1));
+        if (item.attempts >= 5 || !isFwpOverloadError(error)) {
+          pendingFwpQueue = pendingFwpQueue.filter((queued) => queued.id !== item.id);
+        }
+      }
+    }
+    await savePendingFwpQueue();
+  }, 30_000);
+  pendingTimer.unref();
+}
+
 // kept for compatibility — free mode still uses it
 async function streamOllama(
   systemPrompt: string,
@@ -219,6 +308,7 @@ const event: BotEvent = {
     if (!config.ENABLE_PREFIX) return;
     if (!message.guild) return;
     if (message.author.bot) return;
+    startPendingFwpWorker(message.client);
 
     // Free mode: intercept non-command messages in unlocked channels
     const handledByFreeMode = await handleFreeMode(message);
@@ -235,6 +325,74 @@ const event: BotEvent = {
     if (!command) return;
 
     await recordMessageEvent("command_received", message, content, { command, args: parts.join(" ") });
+
+    if (command === "fw") {
+      const sub = parts.shift()?.toLowerCase();
+      if (sub !== "music") return;
+
+      const action = parts[0]?.toLowerCase();
+      if (action === "stop") {
+        const stopped = stopMusic(message.guild.id);
+        const embed = buildEmbed("FW Music", stopped ? "Pare tudo e saí da call." : "Não tinha nada tocando.", stopped ? "ok" : "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      if (action === "skip") {
+        const skipped = skipMusic(message.guild.id);
+        const embed = buildEmbed("FW Music", skipped ? "Pulei essa faixa." : "Não tinha música ativa para pular.", skipped ? "ok" : "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      if (action === "queue" || action === "fila") {
+        const queue = getMusicQueue(message.guild.id);
+        const body = queue.length > 0
+          ? queue.slice(0, 10).map((track, index) => `${index + 1}. **${track.title}**`).join("\n")
+          : "Fila vazia.";
+        await message.reply({ embeds: [buildEmbed("FW Music — Fila", body, "info")] });
+        return;
+      }
+
+      const query = parts.join(" ").trim();
+      if (!query) {
+        const fields = [
+          { name: "Tocar", value: `\`${prefix}fw music <nome da música>\``, inline: false },
+          { name: "Fila", value: `\`${prefix}fw music queue\``, inline: true },
+          { name: "Pular", value: `\`${prefix}fw music skip\``, inline: true },
+          { name: "Parar", value: `\`${prefix}fw music stop\``, inline: true }
+        ];
+        await message.reply({ embeds: [buildEmbedFields("FW Music — Uso", fields, "info")] });
+        return;
+      }
+
+      const voice = message.member?.voice?.channel;
+      if (!voice) {
+        await message.reply({ embeds: [buildEmbed("FW Music", "Entra numa call primeiro pra eu saber onde tocar.", "warn")] });
+        return;
+      }
+
+      const temp = await message.reply("Procurando no YouTube e preparando a call...");
+      try {
+        const result = await playYoutubeMusic(message.client, message.guild, voice, query, message.author.id, message.channelId);
+        const embed = buildEmbed(
+          "FW Music",
+          [
+            `Tocando/enfileirado: **[${result.title}](${result.url})**`,
+            `Pedido por: <@${message.author.id}>`,
+            result.position > 1 ? `Posição na fila: **${result.position}**` : "Entrando na call agora."
+          ].join("\n"),
+          "ok"
+        );
+        await temp.edit({ content: "", embeds: [embed] });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido";
+        const embed = buildEmbed("FW Music falhou", `Não consegui tocar isso: ${msg}`, "error");
+        await temp.edit({ content: "", embeds: [embed] });
+        logger.error({ error, command: "fw music", query }, "Falha ao tocar música");
+      }
+      return;
+    }
 
     if (command === "ping") {
       const start = Date.now();
@@ -271,6 +429,7 @@ const event: BotEvent = {
             `\`${prefix}setup fwp\` \u2014 Selecionar modelo da IA`,
             `\`${prefix}ufwp\` \u2014 Desbloqueia a IA no canal`,
             `\`${prefix}lfwp\` \u2014 Bloqueia a IA de volta`,
+            `\`${prefix}fw music <nome>\` \u2014 Toca YouTube na call`,
             `\`${prefix}pe\` + .exe/.dll \u2014 An\u00e1lise de bin\u00e1rio PE`,
             `\`${prefix}projeto <tipo> [nome]\` \u2014 Gera projeto ZIP`,
             `\`${prefix}spf <pesquisa>\` \u2014 Busca Spotify`,
@@ -675,12 +834,12 @@ const event: BotEvent = {
       }
 
       const start = Date.now();
+      let systemPrompt = "";
+      let fullQuery = userText;
 
       try {
         const trainingData = await loadTrainingData();
-        const systemPrompt = await buildAutonomousSystemPrompt(trainingData.compiledIdentity || trainingData.baseIdentity, message);
-
-        let fullQuery = userText;
+        systemPrompt = await buildAutonomousSystemPrompt(trainingData.compiledIdentity || trainingData.baseIdentity, message);
 
         const urls = [...userText.matchAll(/https?:\/\/[^\s<>()]+/g)].map((m) => m[0]).slice(0, 3);
         for (const url of urls) {
@@ -749,7 +908,11 @@ const event: BotEvent = {
         await message.reply({ embeds: [embed], files });
         logger.info({ command: "fwp", durationMs: Date.now() - start, files: files.length }, "Fwp executado");
       } catch (error) {
-        const msg = formatFwpError(error);
+        let msg = formatFwpError(error);
+        if (isFwpOverloadError(error)) {
+          await enqueuePendingFwp(message, systemPrompt, message.author.id, fullQuery);
+          msg += "\n\nJoguei tua pergunta numa fila interna; vou tentar cobrar essa resposta depois e mando aqui no canal se o provedor parar de passar fome.";
+        }
         const embed = buildEmbed("Fawers engasgou", msg, "warn");
         await message.reply({ embeds: [embed] });
         logger.error({ error, command: "fwp" }, "Fwp falhou");
