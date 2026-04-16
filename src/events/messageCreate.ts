@@ -100,31 +100,31 @@ async function queryOllama(
 ): Promise<string> {
   const provider = await getProvider();
   if (provider === "gemini") {
-    return queryGemini(systemPrompt, memoryKey, userQuery);
+    try {
+      return await queryGemini(systemPrompt, memoryKey, userQuery);
+    } catch (err) {
+      logger.warn({ err: String(err) }, "V2.01 falhou, caindo pro Beta");
+      const betaResponse = await queryLocalOllama(systemPrompt, memoryKey, userQuery);
+      return `> ⚠️ V2 indisponível, respondi no Beta.\n\n${betaResponse}`;
+    }
   }
   if (provider === "gemini-v3") {
     try {
       return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
     } catch (err) {
-      const msg = String(err).toLowerCase();
-      const isQuota = msg.includes("429") || msg.includes("quota") || msg.includes("rate") || msg.includes("exhausted") || msg.includes("resource_exhausted");
-      if (isQuota) {
-        logger.warn({ err: String(err) }, "FAWER Flash V3.0 sem quota, tentando V2.01");
+      logger.warn({ err: String(err) }, "FAWER Flash V3.0 falhou, tentando V2.01");
+      try {
+        const v2response = await queryGemini(systemPrompt, memoryKey, userQuery);
+        return `> ⚠️ V3 indisponível, respondi no V2.01.\n\n${v2response}`;
+      } catch (err2) {
+        logger.warn({ err: String(err2) }, "V2.01 também falhou, caindo pro Beta");
         try {
-          const v2response = await queryGemini(systemPrompt, memoryKey, userQuery);
-          return `> ⚠️ V3 sem quota, respondi no V2.01.\n\n${v2response}`;
-        } catch (err2) {
-          const msg2 = String(err2).toLowerCase();
-          const isQuota2 = msg2.includes("429") || msg2.includes("quota") || msg2.includes("rate") || msg2.includes("exhausted") || msg2.includes("resource_exhausted");
-          if (isQuota2) {
-            logger.warn({ err: String(err2) }, "V2.01 sem quota, caindo pro Beta");
-            const betaResponse = await queryLocalOllama(systemPrompt, memoryKey, userQuery);
-            return `> ⚠️ V3 e V2 sem quota, respondi no Beta.\n\n${betaResponse}`;
-          }
-          throw err2;
+          const betaResponse = await queryLocalOllama(systemPrompt, memoryKey, userQuery);
+          return `> ⚠️ V3 e V2 indisponíveis, respondi no Beta.\n\n${betaResponse}`;
+        } catch (err3) {
+          throw err3;
         }
       }
-      throw err;
     }
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
