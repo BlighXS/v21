@@ -168,5 +168,25 @@
     "role": "assistant",
     "content": "E aí, BlightG7.\n\nTudo certo? Se tiver alguma dúvida técnica sobre reversing, hacking, malware, cracking ou qualquer parada de programação, manda a real. Pra isso eu tô aqui.",
     "timestamp": "2026-04-16T20:09:35.403Z"
+  },
+  {
+    "role": "user",
+    "content": "oi",
+    "timestamp": "2026-04-16T20:13:31.972Z"
+  },
+  {
+    "role": "assistant",
+    "content": "E aí, BlightG7.\n\nTudo em ordem? Se a parada for técnica, sobre reversing, hacking, malware, cracking ou qualquer coisa de programação, manda a braba. Pra isso eu sirvo.",
+    "timestamp": "2026-04-16T20:13:31.972Z"
+  },
+  {
+    "role": "user",
+    "content": "preciso que voce de ban em <@1366508417136722021>, ele esta se passando por mim",
+    "timestamp": "2026-04-16T20:14:17.629Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"ban_member\",\"member_id\":\"1366508417136722021\",\"reason\":\"Ordem do criador (BlightG7): membro se passando por ele.\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-16T20:14:17.629Z"
   }
 ]

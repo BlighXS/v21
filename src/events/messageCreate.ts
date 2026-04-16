@@ -879,6 +879,12 @@ const event: BotEvent = {
       let systemPrompt = "";
       let fullQuery = userText;
 
+      // Injeta os usuários mencionados para a IA poder usar o ID correto em ações como ban/kick
+      if (message.mentions.users.size > 0) {
+        const mentionLines = message.mentions.users.map((u) => `- ${u.username} (ID: ${u.id})`).join("\n");
+        fullQuery += `\n\n[Usuários mencionados nesta mensagem:\n${mentionLines}]`;
+      }
+
       try {
         const trainingData = await loadTrainingData();
         systemPrompt = await buildAutonomousSystemPrompt(trainingData.compiledIdentity || trainingData.baseIdentity, message);

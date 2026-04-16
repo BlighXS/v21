@@ -3,11 +3,14 @@ import type { Guild, Message } from "discord.js";
 import { addBotPreference, recordMessageEvent, updateBotBiography } from "./memorial.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
+const BOT_OWNER_ID = "892469618063589387";
 
 type FwpAction =
   | { type: "create_channel"; name?: string; kind?: "text" | "voice" | "category"; category?: string; categoryId?: string; createCategory?: boolean; reason?: string }
   | { type: "create_category"; name?: string; reason?: string }
   | { type: "move_channel"; channel?: string; channelId?: string; category?: string; categoryId?: string; createCategory?: boolean; reason?: string }
+  | { type: "ban_member"; userId?: string; reason?: string }
+  | { type: "kick_member"; userId?: string; reason?: string }
   | { type: "set_biography"; biography?: string }
   | { type: "remember"; content?: string };
 
@@ -192,6 +195,74 @@ async function executeMoveChannel(message: Message, action: Extract<FwpAction, {
   return `Canal <#${channel.id}> movido para **${category.name}**.`;
 }
 
+function canModerate(message: Message): boolean {
+  const author = message.member;
+  if (!author) return false;
+  if (message.author.id === BOT_OWNER_ID) return true;
+  return author.permissions.has(PermissionsBitField.Flags.BanMembers);
+}
+
+async function executeBanMember(message: Message, action: Extract<FwpAction, { type: "ban_member" }>): Promise<string> {
+  if (!message.guild) return "Não executei ban: mensagem fora de servidor.";
+  if (!canModerate(message)) return "Não executei ban: sem permissão. Só o dono ou admins podem pedir isso.";
+
+  const me = message.guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.BanMembers)) return "Não executei ban: o bot não tem permissão de banir membros.";
+
+  const targetId = action.userId?.replace(/[<@!>]/g, "").trim();
+  if (!targetId) return "Não executei ban: ID do usuário não informado.";
+
+  try {
+    const target = await message.guild.members.fetch(targetId).catch(() => null);
+    const tag = target?.user.tag ?? targetId;
+
+    await message.guild.bans.create(targetId, {
+      reason: action.reason || `Banido via FWP por ${message.author.tag}`
+    });
+
+    await recordMessageEvent("ai_action", message, `Ban executado via FWP: ${tag} (${targetId})`, {
+      action: "ban_member",
+      targetId,
+      reason: action.reason
+    });
+
+    return `**${tag}** foi banido. Motivo: ${action.reason || "não especificado"}.`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Não consegui banir: ${msg}`;
+  }
+}
+
+async function executeKickMember(message: Message, action: Extract<FwpAction, { type: "kick_member" }>): Promise<string> {
+  if (!message.guild) return "Não executei kick: mensagem fora de servidor.";
+  if (!canModerate(message)) return "Não executei kick: sem permissão. Só o dono ou admins podem pedir isso.";
+
+  const me = message.guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.KickMembers)) return "Não executei kick: o bot não tem permissão de expulsar membros.";
+
+  const targetId = action.userId?.replace(/[<@!>]/g, "").trim();
+  if (!targetId) return "Não executei kick: ID do usuário não informado.";
+
+  try {
+    const target = await message.guild.members.fetch(targetId).catch(() => null);
+    if (!target) return `Não executei kick: usuário \`${targetId}\` não encontrado no servidor.`;
+
+    const tag = target.user.tag;
+    await target.kick(action.reason || `Expulso via FWP por ${message.author.tag}`);
+
+    await recordMessageEvent("ai_action", message, `Kick executado via FWP: ${tag} (${targetId})`, {
+      action: "kick_member",
+      targetId,
+      reason: action.reason
+    });
+
+    return `**${tag}** foi expulso. Motivo: ${action.reason || "não especificado"}.`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Não consegui expulsar: ${msg}`;
+  }
+}
+
 export async function executeFwpActions(message: Message, response: string): Promise<string[]> {
   const actions = extractActions(response);
   const reports: string[] = [];
@@ -210,6 +281,16 @@ export async function executeFwpActions(message: Message, response: string): Pro
 
       if (action.type === "move_channel") {
         reports.push(await executeMoveChannel(message, action));
+        continue;
+      }
+
+      if (action.type === "ban_member") {
+        reports.push(await executeBanMember(message, action));
+        continue;
+      }
+
+      if (action.type === "kick_member") {
+        reports.push(await executeKickMember(message, action));
         continue;
       }
 
@@ -237,7 +318,7 @@ export async function executeFwpActions(message: Message, response: string): Pro
         await recordMessageEvent("ai_action", message, action.content, { action: "remember" });
         reports.push("Memória interna registrada.");
       }
-      if (!["create_channel", "create_category", "move_channel", "set_biography", "remember"].includes(action.type)) {
+      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember"].includes(action.type)) {
         reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
       }
     } catch (error) {
