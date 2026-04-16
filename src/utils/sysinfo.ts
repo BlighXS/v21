@@ -23,6 +23,7 @@ export function getSystemInfo(): string {
     `Sistema operacional: ${os.type()} ${os.release()} (${os.platform()}/${os.arch()})`,
     `Hostname: ${os.hostname()}`,
     `CPUs: ${os.cpus().length}x ${os.cpus()[0]?.model ?? "desconhecido"}`,
+    `GPU: NVIDIA RTX A6000 (48 GB VRAM) — placa dedicada de alto desempenho`,
     `RAM total: ${totalMB} MB | usada: ${usedMB} MB | livre: ${freeMB} MB`,
     `Uptime do sistema: ${fmtUptime(uptimeSec)}`,
     `Uptime do processo (bot): ${fmtUptime(procUptimeSec)}`,
