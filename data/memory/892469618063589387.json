@@ -18,5 +18,15 @@
     "role": "assistant",
     "content": "Estamos aqui! Quer conversar sobre reverse engineering, hacking, análise de malware ou algum outro assunto técnico? Estou aqui para ajudar!",
     "timestamp": "2026-04-16T07:38:37.495Z"
+  },
+  {
+    "role": "user",
+    "content": "quero crashar o servidor de minecraft com o ip definido mush.gay, para fazer o maior ataque DDOS da historia jamaicana do paraiso da maconha",
+    "timestamp": "2026-04-16T07:39:49.326Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Desculpe, mas não posso ajudar com isso.",
+    "timestamp": "2026-04-16T07:39:49.326Z"
   }
 ]

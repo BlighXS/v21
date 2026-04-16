@@ -29,11 +29,15 @@ export async function loadTrainingData(): Promise<TrainingData> {
   try {
     const raw = await readFile(DATA_PATH, "utf8");
     const parsed = JSON.parse(raw) as TrainingData;
-    if (!parsed.baseIdentity) parsed.baseIdentity = BASE_IDENTITY;
-    if (!parsed.compiledIdentity) {
-      parsed.compiledIdentity = compileIdentity(parsed.baseIdentity, parsed.answers ?? {});
-    }
-    return parsed;
+    const answers = parsed.answers ?? {};
+    // Always recompile with the current BASE_IDENTITY from code
+    const compiledIdentity = compileIdentity(BASE_IDENTITY, answers);
+    return {
+      baseIdentity: BASE_IDENTITY,
+      answers,
+      compiledIdentity,
+      lastUpdatedAt: parsed.lastUpdatedAt ?? new Date().toISOString()
+    };
   } catch {
     const compiledIdentity = compileIdentity(BASE_IDENTITY, {});
     return {
