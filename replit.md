@@ -56,7 +56,9 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 - Todo comando prefixado, ordem recebida pelo `;fwp`, resposta de IA, ação executada e fetch de internet é registrado no memorial interno em `data/memory/global_memorial.jsonl`.
 - O prompt da IA recebe a biografia interna, preferências, eventos recentes, cargos/canais do servidor e snapshot operacional do Discord.
 - A IA pode solicitar ações estruturadas via FWP:
-  - `create_channel`: cria canais de texto/voz/categoria quando o solicitante tem o cargo `1493064608154652903` ou permissão de administrador, e o bot tem `Gerenciar Canais`.
+  - `create_category`: cria ou garante categorias quando o solicitante tem o cargo `1493064608154652903` ou permissão de administrador, e o bot tem `Gerenciar Canais`.
+  - `create_channel`: cria canais de texto/voz/categoria, inclusive dentro de uma categoria informada, criando a categoria se necessário.
+  - `move_channel`: move canais existentes para uma categoria, criando a categoria se necessário.
   - `set_biography`: altera a biografia interna em `data/memory/bot_profile.json` e atualiza a presença do bot.
   - `remember`: registra uma memória/preferência persistente no perfil interno.
 - URLs HTTPS em mensagens `;fwp` são buscadas automaticamente com bloqueio de IPs privados, e o conteúdo é anexado ao contexto da IA.
