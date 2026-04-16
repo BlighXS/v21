@@ -13,6 +13,7 @@
     "discord.js": "^14.15.3",
     "dotenv": "^16.6.1",
     "express": "^4.22.1",
+    "ollama": "^0.6.3",
     "openai": "^6.12.0",
     "pino": "^9.4.0",
     "pino-pretty": "^11.2.2",

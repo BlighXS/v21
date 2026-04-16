@@ -17,28 +17,21 @@ function canRestart(member: GuildMember): boolean {
 }
 
 async function queryFwp(query: string): Promise<string> {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  const { Ollama } = await import("ollama");
+  const ollama = new Ollama({ host: config.OLLAMA_HOST });
 
-  if (!apiKey || !baseURL) {
-    throw new Error("IA n\u00e3o configurada. Defina AI_INTEGRATIONS_OPENAI_API_KEY e AI_INTEGRATIONS_OPENAI_BASE_URL.");
-  }
-
-  const { default: OpenAI } = await import("openai");
-  const openai = new OpenAI({ apiKey, baseURL });
-  const completion = await openai.chat.completions.create({
-    model: config.OPENAI_MODEL,
+  const response = await ollama.chat({
+    model: config.OLLAMA_MODEL,
     messages: [
       {
         role: "system",
-        content: "Voc\u00ea responde como o Fawer\u2019Bot em PT-BR. Seja \u00fatil, direto, seguro e alinhado ao treinamento do servidor."
+        content: "Voc\u00ea \u00e9 o Fawer\u2019Bot, assistente do servidor Fawer Blight. Responda sempre em PT-BR de forma \u00fatil, direta e alinhada ao servidor."
       },
       { role: "user", content: query }
-    ],
-    max_completion_tokens: 8192
+    ]
   });
 
-  return completion.choices[0]?.message?.content?.trim() || "Sem resposta gerada.";
+  return response.message?.content?.trim() || "Sem resposta gerada.";
 }
 
 const event: BotEvent = {
