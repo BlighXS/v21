@@ -1,24 +1,27 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { loadUserMemory, appendToUserMemory } from "./memory.js";
 import { logger } from "../utils/logger.js";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-function collectKeys(): string[] {
-  const keys: string[] = [];
+function collectKeys(): Array<{ key: string; slot: string }> {
+  const entries: Array<{ key: string; slot: string }> = [];
 
   const base = process.env.GEMINI_API_KEY?.trim();
-  if (base) keys.push(base);
+  if (base) entries.push({ key: base, slot: "key_1" });
 
   for (let i = 2; i <= 20; i++) {
     const k = process.env[`GEMINI_API_KEY_${i}`]?.trim();
-    if (k) keys.push(k);
+    if (k) entries.push({ key: k, slot: `key_${i}` });
   }
 
   const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
-  if (replitKey) keys.push(replitKey);
+  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim();
+  if (replitKey && replitBase) {
+    entries.push({ key: `replit::${replitKey}::${replitBase}`, slot: "replit-integration" });
+  }
 
-  return keys;
+  return entries;
 }
 
 function isRetryableError(err: unknown): boolean {
@@ -30,8 +33,11 @@ function isRetryableError(err: unknown): boolean {
     msg.includes("401") ||
     msg.includes("403") ||
     msg.includes("api_key") ||
+    msg.includes("api key") ||
     msg.includes("expired") ||
-    msg.includes("invalid")
+    msg.includes("invalid") ||
+    msg.includes("not valid") ||
+    msg.includes("not found")
   );
 }
 
@@ -47,37 +53,36 @@ export async function queryGemini(
   }
 
   const history = await loadUserMemory(memoryKey);
-  const chatHistory = history.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }]
-  }));
 
   let lastError: unknown;
 
-  for (let i = 0; i < keys.length; i++) {
-    const slot = i === keys.length - 1 && process.env.AI_INTEGRATIONS_GEMINI_API_KEY === keys[i]
-      ? "replit-integration"
-      : `key_${i + 1}`;
-
+  for (const { key, slot } of keys) {
     try {
-      const clientOpts: Record<string, unknown> = {};
-      if (slot === "replit-integration" && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
-        clientOpts.baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+      let ai: GoogleGenAI;
+
+      if (slot === "replit-integration") {
+        const [, apiKey, baseUrl] = key.split("::");
+        ai = new GoogleGenAI({ apiKey, httpOptions: { baseUrl } });
+      } else {
+        ai = new GoogleGenAI({ apiKey: key });
       }
 
-      const genAI = new GoogleGenerativeAI(keys[i], clientOpts as any);
-      const model = genAI.getGenerativeModel({
+      const chatHistory = history.map((m) => ({
+        role: m.role === "assistant" ? "model" as const : "user" as const,
+        parts: [{ text: m.content }]
+      }));
+
+      const chat = ai.chats.create({
         model: GEMINI_MODEL,
-        systemInstruction: systemPrompt
-      });
-
-      const chat = model.startChat({
         history: chatHistory,
-        generationConfig: { maxOutputTokens: 8192 }
+        config: {
+          systemInstruction: systemPrompt,
+          maxOutputTokens: 8192
+        }
       });
 
-      const result = await chat.sendMessage(userQuery);
-      const reply = result.response.text().trim() || "Sem resposta gerada.";
+      const response = await chat.sendMessage({ message: userQuery });
+      const reply = response.text?.trim() || "Sem resposta gerada.";
 
       await appendToUserMemory(memoryKey, userQuery, reply);
       logger.info({ memoryKey, model: GEMINI_MODEL, slot }, "Resposta Gemini gerada");
