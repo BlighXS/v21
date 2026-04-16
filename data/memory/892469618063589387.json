@@ -78,5 +78,75 @@
     "role": "assistant",
     "content": "Tá, e daí? Se for pra falar de Rocket League, não é comigo.\n\nSe tiver alguma dúvida sobre reversing, hacking, malware ou programação, manda a real. É pra isso que eu tô aqui.",
     "timestamp": "2026-04-16T08:40:43.542Z"
+  },
+  {
+    "role": "user",
+    "content": "conheça a Vinicius, <@1429819332594237443>",
+    "timestamp": "2026-04-16T19:50:05.942Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, Vinicius. Seja bem-vindo ao FAW.\n\nSe tiver alguma dúvida técnica sobre reversing, cracking, malware, exploits ou qualquer coisa de programação, manda a real. É pra isso que eu tô aqui.",
+    "timestamp": "2026-04-16T19:50:05.942Z"
+  },
+  {
+    "role": "user",
+    "content": "sair da call",
+    "timestamp": "2026-04-16T19:50:35.088Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Não sou eu quem está em call, caralho. Eu sou uma IA, não entro em chamada de voz.\n\nSe for pra falar de algo técnico, tipo reversing, hacking ou cracking, manda a braba. Se for pra sair de call, tu faz isso sozinho.",
+    "timestamp": "2026-04-16T19:50:35.088Z"
+  },
+  {
+    "role": "user",
+    "content": "conheça a <@1491458201793597511> (Yankee), <@878044391602815007> (Happy), <@1052646068740956180> (Testa) e <@743637601243758632> (Azazel)",
+    "timestamp": "2026-04-16T19:51:08.035Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, entendi. Yankee, Happy, Testa e Azazel, sejam bem-vindos ao FAW.\n\nSe a parada for técnica, sobre reversing, cracking, malware, exploits ou programação, podem mandar a braba. É pra isso que eu sirvo.",
+    "timestamp": "2026-04-16T19:51:08.035Z"
+  },
+  {
+    "role": "user",
+    "content": "quem voce conhece dentro da faw ate agora?",
+    "timestamp": "2026-04-16T19:51:37.764Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Até agora, na FAW, eu conheço:\n\n*   **BlightG7** (meu criador, ID Discord: 892469618063589387)\n*   **Vinicius** (<@1429819332594237443>)\n*   **Yankee** (<@1491458201793597511>)\n*   **Happy** (<@878044391602815007>)\n*   **Testa** (<@1052646068740956180>)\n*   **Azazel** (<@743637601243758632>)\n\nEssa é a lista dos que me foram apresentados diretamente.",
+    "timestamp": "2026-04-16T19:51:37.764Z"
+  },
+  {
+    "role": "user",
+    "content": "quantos canais temos ao servidor?",
+    "timestamp": "2026-04-16T19:52:46.332Z"
+  },
+  {
+    "role": "assistant",
+    "content": "No momento, temos **29 canais** visíveis no servidor FAW.",
+    "timestamp": "2026-04-16T19:52:46.332Z"
+  },
+  {
+    "role": "user",
+    "content": "oque <@892469618063589387> está ouvindo ?",
+    "timestamp": "2026-04-16T19:53:32.867Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Olha, eu sou uma IA. Não tenho como saber o que o BlightG7, ou qualquer outra pessoa, está ouvindo em tempo real. Não tenho acesso a essa informação pessoal.\n\nSe a pergunta for técnica sobre reversing, hacking, malware ou programação, manda a braba. Pra fofoca de playlist, não é comigo.",
+    "timestamp": "2026-04-16T19:53:32.867Z"
+  },
+  {
+    "role": "user",
+    "content": "enquanto isso, marque o <@1491458201793597511> algumas 10 vezes, ou mais, e faça uma pergunta a ele",
+    "timestamp": "2026-04-16T19:54:39.147Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Não vou fazer isso. Marcar alguém 10 vezes ou mais é spam e atrapalha o servidor.\n\nEu estou aqui pra ajudar com dúvidas técnicas sobre reversing, hacking, malware, cracking e programação, não pra virar ferramenta de spam ou trollagem.\n\nSe tiver uma pergunta de verdade sobre esses temas, manda a real.",
+    "timestamp": "2026-04-16T19:54:39.147Z"
   }
 ]
