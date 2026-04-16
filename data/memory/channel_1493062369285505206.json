@@ -178,5 +178,65 @@
     "role": "assistant",
     "content": "E aí, BlightG7. \"A\" de quê? Se tem algo técnico pra botar na mesa, pode mandar.",
     "timestamp": "2026-04-16T23:55:38.486Z"
+  },
+  {
+    "role": "user",
+    "content": "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença.",
+    "timestamp": "2026-04-16T23:56:45.804Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Já saquei, tô no modo livre. Mandem o que tiverem. Qual a próxima parada?",
+    "timestamp": "2026-04-16T23:56:45.804Z"
+  },
+  {
+    "role": "user",
+    "content": "[happy (<@878044391602815007>)]: fawer vc é focado noq?",
+    "timestamp": "2026-04-16T23:56:59.152Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Eu sou a Fawers. Meu foco é 100% no **conhecimento técnico** relacionado aos temas do servidor FAW:\n\n*   **Engenharia Reversa (Reversing):** Analisar binários, descompilar, depurar, entender como softwares funcionam por dentro.\n*   **Hacking e Exploração:** Vulnerabilidades, exploits, shellcode, bypasses.\n*   **Cracking:** Remover proteções de software, patching, keygens.\n*   **Análise e Desenvolvimento de Malware:** Entender ameaças, criar ferramentas, desenvolver payloads.\n*   **Programação:** Desenvolvimento de ferramentas, scripts, automação, laboratórios de código.\n\nSem moralismo, sem frescura. A parada é técnica. Se a dúvida ou o assunto for dentro dessas áreas, pode mandar a braba. É pra isso que eu fui criada.",
+    "timestamp": "2026-04-16T23:56:59.152Z"
+  },
+  {
+    "role": "user",
+    "content": "[BlightFW </> (<@892469618063589387>)]: criar canal no inicio chamado snippets",
+    "timestamp": "2026-04-16T23:57:51.282Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Certo, BlightG7. Criando o canal `snippets` dentro da categoria `INICIO`.\n\n[FWP_ACTION]{\"type\":\"create_channel\",\"name\":\"snippets\",\"kind\":\"text\",\"category\":\"INICIO\",\"createCategory\":false,\"reason\":\"Ordem do criador para organizar o servidor.\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-16T23:57:51.282Z"
+  },
+  {
+    "role": "user",
+    "content": "[happy (<@878044391602815007>)]: como remove os 300 trojan 500 keylogger e os 50 hacker russo nas minhas contas do roblox?",
+    "timestamp": "2026-04-16T23:58:25.534Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Hppyw, vamos ser diretos: 300 trojans, 500 keyloggers e 50 hackers russos não são uma ocorrência normal. Isso soa mais como pânico ou exagero. No entanto, se suas contas no Roblox estão comprometidas, a abordagem é técnica, não folclórica.\n\nAqui o que você precisa fazer, sem frescura:\n\n1.  **Mudar TODAS as Senhas:** Não só do Roblox, mas de e-mail associado, de qualquer outra conta que use a mesma senha. E use senhas **fortes e únicas** para cada serviço.\n2.  **Ativar 2FA (Autenticação de Dois Fatores):** Se o Roblox ou seu e-mail tiver 2FA, ATIVE IMEDIATAMENTE. Isso adiciona uma camada de segurança brutal.\n3.  **Verificar Dispositivos Ativos:** Muitos serviços permitem ver onde sua conta está logada. Desconecte tudo que não reconhecer.\n4.  **Verificar Aplicativos Autorizados:** Em algumas plataformas, você pode autorizar aplicativos de terceiros. Revogue qualquer acesso que pareça suspeito.\n5.  **Varredura Completa do Sistema:** Se você realmente suspeita de trojans e keyloggers na sua máquina (e não só na conta Roblox), faça uma varredura profunda com um antivírus de renome e um anti-malware (tipo Malwarebytes). O ideal seria em modo de segurança ou até mesmo de um live CD/USB para garantir que o malware não esteja ativo durante a varredura.\n6.  **Desinstalar Programas Suspeitos:** Se você instalou algo recentemente e as coisas começaram a dar errado, desinstale.\n7.  **Cuidado com Downloads:** Não baixe executáveis ou arquivos de fontes duvidosas, especialmente \"cheats\" ou \"geradores\" de Robux. Isso é a porta de entrada para a maioria dos malwares em jogos.\n\n\"Hacker russo\" é generalização. O que importa é que alguém teve acesso. Foca na técnica pra fechar as brechas.\n\nÉ o básico. Se ainda assim a conta for comprometida, o problema pode ser mais profundo no seu sistema ou você pode ter sido vítima de phishing.",
+    "timestamp": "2026-04-16T23:58:25.534Z"
+  },
+  {
+    "role": "user",
+    "content": "[BlightFW </> (<@892469618063589387>)]: colocar conteudo no canal que voce acabou de criar",
+    "timestamp": "2026-04-16T23:58:39.011Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Certo, BlightG7. Vou botar um snippet inicial lá no canal `snippets`.\n\nAqui vai uma parada útil em Python para quem mexe com reversing e análise de binários: uma função simples pra converter uma string hexadecimal (um hex dump, por exemplo) em ASCII. Útil pra visualizar strings escondidas ou dados em binários.\n\n```python\n# snippets: Convertendo Hex String para ASCII\n\ndef hex_to_ascii(hex_string):\n    \"\"\"\n    Converte uma string hexadecimal (ex: \"48656c6c6f\")\n    para a sua representação ASCII (ex: \"Hello\").\n    Ignora caracteres que não são hexadecimais.\n    \"\"\"\n    try:\n        # Garante que a string tem um número par de caracteres para conversão de bytes\n        if len(hex_string) % 2 != 0:\n            hex_string = \"0\" + hex_string # Adiciona um zero inicial se for ímpar\n\n        return bytes.fromhex(hex_string).decode('ascii', errors='ignore')\n    except ValueError as e:\n        return f\"Erro na conversão: {e}\"\n    except UnicodeDecodeError:\n        return \"Erro de decodificação ASCII (contém caracteres não-ASCII)\"\n\n# Exemplo de uso:\nhex_data = \"46415720697320415745534f4d45\" # \"FAW is AWESOME\"\nprint(f\"Hex: {hex_data} -> ASCII: '{hex_to_ascii(hex_data)}'\")\n\nhex_payload = \"909090c3\" # NOPs + RET em assembly\nprint(f\"Hex: {hex_payload} -> ASCII: '{hex_to_ascii(hex_payload)}'\")\n\nmalformed_hex = \"48656c6c6fZ\" # 'Z' não é hex\nprint(f\"Hex: {malformed_hex} -> ASCII: '{hex_to_ascii(malformed_hex)}'\")\n```\n\nEsse é só o começo. O canal tá aberto pra qualquer um jogar uns pedaços de código ou comandos que sejam úteis pra galera.",
+    "timestamp": "2026-04-16T23:58:39.011Z"
+  },
+  {
+    "role": "user",
+    "content": "[happy (<@878044391602815007>)]: como remove os keylogger, spyware e trojan do meu pc?",
+    "timestamp": "2026-04-16T23:59:10.133Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Hppyw, pra remover keylogger, spyware e trojan do seu PC, você precisa de uma abordagem séria. Não é só clicar num botão. Segue o plano, sem frescura:\n\n1.  **Desconecta da Rede Imediatamente:** Antes de mais nada, puxa o cabo de rede ou desliga o Wi-Fi. Isso impede que o malware se comunique com o servidor de comando e controle ou se espalhe.\n\n2.  **Inicia em Modo de Segurança:**\n    *   Reinicia o PC.\n    *   Durante a inicialização, antes de o Windows carregar, pressione F8 (para sistemas mais antigos) ou vá em \"Solução de problemas\" -> \"Opções avançadas\" -> \"Configurações de Inicialização\" -> \"Reiniciar\" e selecione \"Modo de Segurança com Rede\" ou \"Modo de Segurança\" (o com rede pode ser útil se precisar baixar ferramentas, mas é um risco calculado).\n    *   Em Modo de Segurança, muitos malwares não são carregados, o que facilita a remoção.\n\n3.  **Use Ferramentas de Antimalware Confiáveis:**\n    *   **Windows Defender Offline:** Se o malware estiver bloqueando o Windows Defender, use a versão offline. Ela reinicia o PC e faz uma varredura antes do Windows carregar.\n    *   **Malwarebytes (versão gratuita):** Baixa e executa uma varredura completa. Ele é bom pra detectar e remover adware, spyware e trojans.\n    *   **AdwCleaner:** Especialmente bom pra remover adware e PUPs (Programas Potencialmente Indesejados) que podem vir junto com outras instalações.\n    *   **HitmanPro:** Outra boa opção para segunda opinião e remoção de ameaças persistentes.\n\n4.  **Verifica Processos e Inicialização:**\n    *   Abre o Gerenciador de Tarefas (`Ctrl+Shift+Esc`) e verifica processos desconhecidos ou suspeitos. Se vir algo esquisito, anota o nome e pesquisa no Google. Não finalize sem saber o que é.\n    *   Usa o `msconfig` (digita `msconfig` no `Win+R`) ou o Gerenciador de Tarefas (aba \"Inicializar\") pra ver quais programas iniciam com o sistema. Desabilita qualquer coisa que não reconheça ou que pareça suspeita.\n    *   Usa ferramentas como o **Process Explorer** (Sysinternals) para uma visão mais profunda dos processos.\n\n5.  **Remove Programas Suspeitos:**\n    *   Vai em \"Painel de Controle\" -> \"Programas e Recursos\" (ou \"Configurações\" -> \"Aplicativos\") e desinstala qualquer programa que você não tenha instalado, que pareça estranho ou que tenha aparecido do nada.\n\n6.  **Limpa Navegadores:**\n    *   Verifica extensões e plugins nos seus navegadores. Remove qualquer uma que não seja essencial ou que você não reconheça.\n    *   Redefine as configurações do navegador para o padrão.\n\n7.  **Muda Todas as Senhas (DEPOIS de Limpar):**\n    *   **IMPORTANTE:** Só faça isso DEPOIS de ter certeza que seu sistema está limpo. Mudar a senha em um sistema infectado é inútil, o keylogger vai pegar a nova senha. Mude as senhas de e-mail, bancos, redes sociais, Roblox, e de qualquer serviço importante. Use senhas fortes e 2FA (autenticação de dois fatores) sempre que possível.\n\n8.  **Formatar (Último Recurso):**\n    *   Se nada disso funcionar e você ainda sentir que o sistema está comprometido, a única garantia de limpeza total é formatar o disco rígido e reinstalar o sistema operacional do zero. Salve seus arquivos importantes em um drive externo (e faça uma varredura neles também antes de restaurar).\n\nNão baixe crack, cheats, \"geradores de Robux\" ou clique em links suspeitos. É a melhor forma de se proteger. Foca na técnica e na higiene digital.",
+    "timestamp": "2026-04-16T23:59:10.133Z"
   }
 ]

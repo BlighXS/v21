@@ -1,7 +1,8 @@
-import { ActivityType, ChannelType, PermissionsBitField } from "discord.js";
+import { ActivityType, AttachmentBuilder, ChannelType, PermissionsBitField } from "discord.js";
 import type { Guild, Message } from "discord.js";
 import { addBotPreference, recordMessageEvent, updateBotBiography } from "./memorial.js";
 import { readSourceFile, writeSourceFile, listSourceFiles } from "../utils/sysinfo.js";
+import { generateImage } from "./imageGen.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -16,7 +17,8 @@ type FwpAction =
   | { type: "remember"; content?: string }
   | { type: "read_source_file"; path?: string }
   | { type: "write_source_file"; path?: string; content?: string }
-  | { type: "list_source_files"; dir?: string };
+  | { type: "list_source_files"; dir?: string }
+  | { type: "generate_image"; prompt?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text.replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "").trim();
@@ -310,6 +312,22 @@ async function executeListSourceFiles(message: Message, action: Extract<FwpActio
   }
 }
 
+async function executeGenerateImage(message: Message, action: Extract<FwpAction, { type: "generate_image" }>): Promise<string> {
+  const prompt = action.prompt?.trim();
+  if (!prompt) return "Imagem não gerada: prompt vazio.";
+
+  try {
+    const img = await generateImage(prompt);
+    const attachment = new AttachmentBuilder(img.buffer, { name: `imagem.${img.ext}` });
+    await message.channel.send({ files: [attachment] });
+    await recordMessageEvent("ai_action", message, `Imagem gerada via FWP. Prompt: ${prompt.slice(0, 200)}`, { action: "generate_image", prompt });
+    return "Imagem gerada e enviada.";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Não consegui gerar a imagem: ${msg}`;
+  }
+}
+
 export async function executeFwpActions(message: Message, response: string): Promise<string[]> {
   const actions = extractActions(response);
   const reports: string[] = [];
@@ -380,7 +398,12 @@ export async function executeFwpActions(message: Message, response: string): Pro
         continue;
       }
 
-      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files"].includes(action.type)) {
+      if (action.type === "generate_image") {
+        reports.push(await executeGenerateImage(message, action));
+        continue;
+      }
+
+      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files", "generate_image"].includes(action.type)) {
         reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
       }
     } catch (error) {
