@@ -1,4 +1,4 @@
-import { AttachmentBuilder } from "discord.js";
+import { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import type { GuildMember } from "discord.js";
 import type { BotEvent } from "../utils/events.js";
 import { safeFetch } from "../utils/net.js";
@@ -16,6 +16,8 @@ import { extractCodeBlocks, hasCodeBlocks, createZip, readAttachmentText, isText
 import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } from "../ai/binaryAnalysis.js";
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
+import { getProvider } from "../ai/providerConfig.js";
+import { queryGemini } from "../ai/gemini.js";
 
 function canRestart(member: GuildMember): boolean {
   if (config.RESTART_ROLE_IDS.length === 0) return isAdminMember(member);
@@ -49,7 +51,7 @@ async function runWithSpinner(
   }
 }
 
-async function queryOllama(
+async function queryLocalOllama(
   systemPrompt: string,
   memoryKey: string,
   userQuery: string
@@ -73,6 +75,18 @@ async function queryOllama(
   const reply = response.message?.content?.trim() || "Sem resposta gerada.";
   await appendToUserMemory(memoryKey, userQuery, reply);
   return reply;
+}
+
+async function queryOllama(
+  systemPrompt: string,
+  memoryKey: string,
+  userQuery: string
+): Promise<string> {
+  const provider = await getProvider();
+  if (provider === "gemini") {
+    return queryGemini(systemPrompt, memoryKey, userQuery);
+  }
+  return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
 
 async function queryFwp(
@@ -188,6 +202,7 @@ const event: BotEvent = {
             `\`${prefix}fwp <msg>\` \u2014 Chat com a IA`,
             `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a IA`,
             `\`${prefix}fwp limpar\` \u2014 Apaga mem\u00f3ria`,
+            `\`${prefix}setup fwp\` \u2014 Selecionar modelo da IA`,
             `\`${prefix}ufwp\` \u2014 Desbloqueia a IA no canal`,
             `\`${prefix}lfwp\` \u2014 Bloqueia a IA de volta`,
             `\`${prefix}pe\` + .exe/.dll \u2014 An\u00e1lise de bin\u00e1rio PE`,
@@ -401,6 +416,29 @@ const event: BotEvent = {
         const embed = buildEmbed("Falha no Spotify", msg, "error");
         await temp.edit({ content: "", embeds: [embed] });
       }
+      return;
+    }
+
+    if (command === "setup" && parts[0]?.toLowerCase() === "fwp") {
+      if (!isFreeModeOwner(message.author.id)) {
+        const embed = buildEmbed("Acesso negado", "Sem permissão para acessar o setup.", "warn");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("fwp_model_beta")
+          .setLabel("Modelo Beta")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("fwp_model_v2")
+          .setLabel("FAWER_V2.01")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      const embed = buildEmbed("Setup — Fawers", "Qual modelo você quer selecionar?", "info");
+      await message.reply({ embeds: [embed], components: [row] });
       return;
     }
 

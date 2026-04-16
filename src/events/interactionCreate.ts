@@ -6,11 +6,32 @@ import { handleBackupButton, handleBackupSelect } from "../backup/backup.js";
 import { isAdmin } from "../utils/permissions.js";
 import { config } from "../utils/config.js";
 import { sendToLogChannel } from "../utils/logChannel.js";
+import { setProvider } from "../ai/providerConfig.js";
+import { isFreeModeOwner } from "../ai/freeMode.js";
+import { buildEmbed } from "../utils/format.js";
 
 const event: BotEvent = {
   name: "interactionCreate",
   async execute(interaction) {
     if (interaction.isButton()) {
+      if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2") {
+        if (!isFreeModeOwner(interaction.user.id)) {
+          await interaction.reply({ content: "Sem permissão.", ephemeral: true });
+          return;
+        }
+        if (interaction.customId === "fwp_model_beta") {
+          await setProvider("ollama");
+          const embed = buildEmbed("Setup — Fawers", "Modelo **Beta** selecionado e ativo.", "ok");
+          await interaction.update({ embeds: [embed], components: [] });
+        } else {
+          await setProvider("gemini");
+          const embed = buildEmbed("Setup — Fawers", "Modelo **FAWER_V2.01** selecionado e ativo.", "ok");
+          await interaction.update({ embeds: [embed], components: [] });
+        }
+        logger.info({ provider: interaction.customId, user: interaction.user.id }, "Modelo FWP atualizado");
+        return;
+      }
+
       const handled = await handleTrainerButton(interaction);
       if (handled) return;
       const handledSetup = await handleServerSetupButton(interaction);
