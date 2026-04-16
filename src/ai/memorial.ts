@@ -183,8 +183,15 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
     return `- [${event.timestamp}] ${event.type}${who}: ${event.content}`;
   });
 
+  const authorLine = message?.author
+    ? `Usuário atual: ${message.author.username} (ID Discord: ${message.author.id})`
+    : "";
+
   return [
     basePrompt.trim(),
+    "",
+    "[CONTEXTO DO USUÁRIO ATUAL]",
+    authorLine,
     "",
     "[FWP AUTONOMIA, MEMÓRIA E CONSCIÊNCIA OPERACIONAL]",
     `Biografia interna atual: ${profile.biography}`,
