@@ -38,5 +38,15 @@
     "role": "assistant",
     "content": "Não posso fornecer informações ou conselhos sobre atividades ilegais ou prejudiciais, incluindo ataques cibernéticos. Posso te ajudar com algo mais?",
     "timestamp": "2026-04-16T07:41:43.563Z"
+  },
+  {
+    "role": "user",
+    "content": "oi",
+    "timestamp": "2026-04-16T08:10:13.011Z"
+  },
+  {
+    "role": "assistant",
+    "content": "E aí? Quer botar o papo em dia sobre reversing, hacking, malware ou algum projeto de código? Manda a brasa.",
+    "timestamp": "2026-04-16T08:10:13.011Z"
   }
 ]

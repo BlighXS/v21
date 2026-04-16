@@ -457,18 +457,10 @@ const event: BotEvent = {
       await enableFreeMode(message.channelId);
       const trainingData = await loadTrainingData();
       const systemPrompt = (trainingData.compiledIdentity || trainingData.baseIdentity) + FREE_MODE_SYSTEM_SUFFIX;
+      const memoryKey = `channel_${message.channelId}`;
       const intro = await (async () => {
         try {
-          const { Ollama } = await import("ollama");
-          const ollama = new Ollama({ host: config.OLLAMA_HOST });
-          const res = await ollama.chat({
-            model: config.OLLAMA_MODEL,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença." }
-            ]
-          });
-          return res.message?.content?.trim() || null;
+          return await queryOllama(systemPrompt, memoryKey, "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença.");
         } catch {
           return null;
         }
