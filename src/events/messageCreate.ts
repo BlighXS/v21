@@ -20,7 +20,7 @@ import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } 
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 import { getProvider } from "../ai/providerConfig.js";
-import { queryGemini } from "../ai/gemini.js";
+import { queryGemini, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { buildAutonomousSystemPrompt, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks } from "../ai/actions.js";
 
@@ -101,6 +101,9 @@ async function queryOllama(
   const provider = await getProvider();
   if (provider === "gemini") {
     return queryGemini(systemPrompt, memoryKey, userQuery);
+  }
+  if (provider === "gemini-v3") {
+    return queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
@@ -659,7 +662,11 @@ const event: BotEvent = {
         new ButtonBuilder()
           .setCustomId("fwp_model_v2")
           .setLabel("FAWER_V2.01")
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("fwp_model_v3")
+          .setLabel("FAWER Flash V3.0")
+          .setStyle(ButtonStyle.Success)
       );
 
       const embed = buildEmbed("Setup — Fawers", "Qual modelo você quer selecionar?", "info");

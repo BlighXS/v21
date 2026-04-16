@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "apague o canal midia",
+    "timestamp": "2026-04-16T20:04:53.565Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"delete_channel\",\"channel_id\":\"1494253737093496852\",\"reason\":\"Ordem do criador (BlightG7) para apagar o canal midia.\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-16T20:04:53.565Z"
+  }
+]

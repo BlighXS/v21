@@ -3,7 +3,8 @@ import { loadUserMemory, appendToUserMemory } from "./memory.js";
 import { logger } from "../utils/logger.js";
 import { recordMemorialEvent } from "./memorial.js";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
+export const GEMINI_MODEL_V3 = "gemini-2.0-flash";
 
 function collectKeys(): Array<{ key: string; slot: string }> {
   const entries: Array<{ key: string; slot: string }> = [];
@@ -45,7 +46,8 @@ function isRetryableError(err: unknown): boolean {
 export async function queryGemini(
   systemPrompt: string,
   memoryKey: string,
-  userQuery: string
+  userQuery: string,
+  model: string = GEMINI_MODEL_DEFAULT
 ): Promise<string> {
   const keys = collectKeys();
 
@@ -74,7 +76,7 @@ export async function queryGemini(
       }));
 
       const chat = ai.chats.create({
-        model: GEMINI_MODEL,
+        model,
         history: chatHistory,
         config: {
           systemInstruction: systemPrompt,
@@ -89,9 +91,9 @@ export async function queryGemini(
       await recordMemorialEvent({
         type: "ai_response",
         content: reply,
-        metadata: { provider: "gemini", memoryKey, model: GEMINI_MODEL, slot }
+        metadata: { provider: "gemini", memoryKey, model, slot }
       });
-      logger.info({ memoryKey, model: GEMINI_MODEL, slot }, "Resposta Gemini gerada");
+      logger.info({ memoryKey, model, slot }, "Resposta Gemini gerada");
       return reply;
 
     } catch (err) {

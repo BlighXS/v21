@@ -14,7 +14,7 @@ const event: BotEvent = {
   name: "interactionCreate",
   async execute(interaction) {
     if (interaction.isButton()) {
-      if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2") {
+      if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2" || interaction.customId === "fwp_model_v3") {
         if (!isFreeModeOwner(interaction.user.id)) {
           await interaction.reply({ content: "Sem permissão.", ephemeral: true });
           return;
@@ -23,9 +23,13 @@ const event: BotEvent = {
           await setProvider("ollama");
           const embed = buildEmbed("Setup — Fawers", "Modelo **Beta** selecionado e ativo.", "ok");
           await interaction.update({ embeds: [embed], components: [] });
-        } else {
+        } else if (interaction.customId === "fwp_model_v2") {
           await setProvider("gemini");
           const embed = buildEmbed("Setup — Fawers", "Modelo **FAWER_V2.01** selecionado e ativo.", "ok");
+          await interaction.update({ embeds: [embed], components: [] });
+        } else {
+          await setProvider("gemini-v3");
+          const embed = buildEmbed("Setup — Fawers", "Modelo **FAWER Flash V3.0** selecionado e ativo.", "ok");
           await interaction.update({ embeds: [embed], components: [] });
         }
         logger.info({ provider: interaction.customId, user: interaction.user.id }, "Modelo FWP atualizado");
