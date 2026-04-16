@@ -104,6 +104,23 @@ async function queryFwp(
   return queryOllama(systemPrompt, userId, userQuery);
 }
 
+function formatFwpError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const lower = raw.toLowerCase();
+  const overloaded =
+    lower.includes("503") ||
+    lower.includes("unavailable") ||
+    lower.includes("high demand") ||
+    lower.includes("overloaded") ||
+    lower.includes("rate limit");
+
+  if (overloaded) {
+    return "CPU cheia, modelo passando fome de memória RAM. Tenta de novo daqui a pouco que eu volto menos miserável.";
+  }
+
+  return raw || "Erro desconhecido";
+}
+
 // kept for compatibility — free mode still uses it
 async function streamOllama(
   systemPrompt: string,
@@ -691,8 +708,8 @@ const event: BotEvent = {
         await message.reply({ embeds: [embed], files });
         logger.info({ command: "fwp", durationMs: Date.now() - start, files: files.length }, "Fwp executado");
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Erro desconhecido";
-        const embed = buildEmbed("Falha — Fawers", msg, "error");
+        const msg = formatFwpError(error);
+        const embed = buildEmbed("Fawers engasgou", msg, "warn");
         await message.reply({ embeds: [embed] });
         logger.error({ error, command: "fwp" }, "Fwp falhou");
       }
