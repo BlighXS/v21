@@ -8,7 +8,7 @@ export interface ChatMessage {
 }
 
 const MEMORY_DIR = path.join(process.cwd(), "data", "memory");
-const MAX_HISTORY = 20;
+const MAX_HISTORY = 80;
 
 export async function loadUserMemory(userId: string): Promise<ChatMessage[]> {
   try {

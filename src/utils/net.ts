@@ -23,14 +23,14 @@ function isPrivateIp(ip: string): boolean {
   });
 }
 
-export async function safeFetch(urlRaw: string, options?: RequestInit) {
+export async function safeFetch(urlRaw: string, options?: RequestInit, settings?: { allowAnyPublicDomain?: boolean; maxChars?: number }) {
   const url = new URL(urlRaw);
 
   if (!config.ALLOW_INSECURE_HTTP && url.protocol !== "https:") {
     throw new Error("Only https URLs are allowed");
   }
 
-  if (!isAllowedDomain(url.hostname)) {
+  if (!settings?.allowAnyPublicDomain && !isAllowedDomain(url.hostname)) {
     throw new Error("Domain not allowed");
   }
 
@@ -58,8 +58,9 @@ export async function safeFetch(urlRaw: string, options?: RequestInit) {
     }
 
     const text = await response.text();
-    if (text.length > 5000) {
-      return text.slice(0, 5000) + "\n...[truncado]";
+    const maxChars = settings?.maxChars ?? 5000;
+    if (text.length > maxChars) {
+      return text.slice(0, maxChars) + "\n...[truncado]";
     }
 
     return text;

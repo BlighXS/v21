@@ -15,6 +15,7 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 - **Dashboard web**: Express 4
 - **Logs**: Pino + pino-pretty
 - **IA**: OpenAI-compatible via `AI_INTEGRATIONS_OPENAI_BASE_URL` e `AI_INTEGRATIONS_OPENAI_API_KEY`
+- **Memória IA**: ledger interno em `data/memory/global_memorial.jsonl`, perfil em `data/memory/bot_profile.json` e histórico por usuário/canal em `data/memory/*.json`
 - **Música**: Spotify API (Client Credentials Flow)
 
 ## Comandos Disponíveis
@@ -40,6 +41,7 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 | `;usuario [@alvo]` | Perfil de usuário |
 | `;spf <pesquisa>` | Busca músicas no Spotify |
 | `;fwp <pergunta>` | Consulta IA Fawer |
+| `;fwp <url/pergunta>` | Consulta IA com acesso seguro a páginas HTTPS públicas |
 | `;trainer` | Inicia treinamento da IA |
 | `;backup server <nome>` | Cria backup do servidor |
 | `;backup list` | Lista backups |
@@ -48,6 +50,16 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 | `;admin status` | Status do bot |
 | `;restart` | Reinicia o bot |
 | `;net fetch <url>` | HTTP seguro (admin) |
+
+## Autonomia e Memória da Fawers
+
+- Todo comando prefixado, ordem recebida pelo `;fwp`, resposta de IA, ação executada e fetch de internet é registrado no memorial interno em `data/memory/global_memorial.jsonl`.
+- O prompt da IA recebe a biografia interna, preferências, eventos recentes, cargos/canais do servidor e snapshot operacional do Discord.
+- A IA pode solicitar ações estruturadas via FWP:
+  - `create_channel`: cria canais de texto/voz/categoria quando o solicitante tem o cargo `1493064608154652903` ou permissão de administrador, e o bot tem `Gerenciar Canais`.
+  - `set_biography`: altera a biografia interna em `data/memory/bot_profile.json` e atualiza a presença do bot.
+  - `remember`: registra uma memória/preferência persistente no perfil interno.
+- URLs HTTPS em mensagens `;fwp` são buscadas automaticamente com bloqueio de IPs privados, e o conteúdo é anexado ao contexto da IA.
 
 ## Estrutura do Código
 

@@ -18,6 +18,8 @@ import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.j
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 import { getProvider } from "../ai/providerConfig.js";
 import { queryGemini } from "../ai/gemini.js";
+import { buildAutonomousSystemPrompt, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
+import { executeFwpActions, stripFwpActionBlocks } from "../ai/actions.js";
 
 function canRestart(member: GuildMember): boolean {
   if (config.RESTART_ROLE_IDS.length === 0) return isAdminMember(member);
@@ -69,11 +71,16 @@ async function queryLocalOllama(
   const response = await ollama.chat({
     model: config.OLLAMA_MODEL,
     messages,
-    options: { num_ctx: 2048 }
+    options: { num_ctx: 4096 }
   });
 
   const reply = response.message?.content?.trim() || "Sem resposta gerada.";
   await appendToUserMemory(memoryKey, userQuery, reply);
+  await recordMemorialEvent({
+    type: "ai_response",
+    content: reply,
+    metadata: { provider: "ollama", memoryKey, model: config.OLLAMA_MODEL }
+  });
   return reply;
 }
 
@@ -120,7 +127,7 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
   try {
     const trainingData = await loadTrainingData();
     const basePrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
-    const systemPrompt = basePrompt + FREE_MODE_SYSTEM_SUFFIX;
+    const systemPrompt = await buildAutonomousSystemPrompt(basePrompt + FREE_MODE_SYSTEM_SUFFIX, message);
 
     const author = message.author;
     const display = message.member?.displayName ?? author.username;
@@ -128,10 +135,15 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
 
     const memoryKey = `channel_${message.channelId}`;
 
-    const { result: reply, spinnerMsg } = await runWithSpinner(
+    await recordMessageEvent("order_received", message, content || "(mensagem sem texto)", { mode: "free" });
+
+    const { result: rawReply, spinnerMsg } = await runWithSpinner(
       message,
       () => queryOllama(systemPrompt, memoryKey, userQuery)
     );
+
+    const actionReports = await executeFwpActions(message, rawReply);
+    const reply = stripFwpActionBlocks(rawReply);
 
     await spinnerMsg.delete().catch(() => {});
 
@@ -140,7 +152,8 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
       return true;
     }
 
-    await message.channel.send(truncate(reply, 1900));
+    const finalReply = actionReports.length > 0 ? `${reply}\n\n${actionReports.join("\n")}` : reply;
+    await message.channel.send(truncate(finalReply, 1900));
     logger.info({ channel: message.channelId, author: author.id }, "Free mode: resposta enviada");
   } catch (err) {
     logger.error({ err }, "Free mode: falha ao gerar resposta");
@@ -169,6 +182,8 @@ const event: BotEvent = {
     const parts = content.split(/\s+/);
     const command = parts.shift()?.toLowerCase();
     if (!command) return;
+
+    await recordMessageEvent("command_received", message, content, { command, args: parts.join(" ") });
 
     if (command === "ping") {
       const start = Date.now();
@@ -612,9 +627,22 @@ const event: BotEvent = {
 
       try {
         const trainingData = await loadTrainingData();
-        const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
+        const systemPrompt = await buildAutonomousSystemPrompt(trainingData.compiledIdentity || trainingData.baseIdentity, message);
 
         let fullQuery = userText;
+
+        const urls = [...userText.matchAll(/https?:\/\/[^\s<>()]+/g)].map((m) => m[0]).slice(0, 3);
+        for (const url of urls) {
+          try {
+            const webContent = await safeFetch(url, undefined, { allowAnyPublicDomain: true, maxChars: 7000 });
+            fullQuery += `\n\n[Conteúdo acessado da internet: ${url}]\n\`\`\`\n${webContent}\n\`\`\``;
+            await recordMessageEvent("internet_fetch", message, `FWP acessou ${url}`, { url, ok: true });
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "erro desconhecido";
+            fullQuery += `\n\n[Internet: não consegui acessar ${url}. Motivo: ${msg}]`;
+            await recordMessageEvent("internet_fetch", message, `Falha ao acessar ${url}: ${msg}`, { url, ok: false });
+          }
+        }
 
         for (const att of attachments) {
           const fname = att.name ?? "arquivo";
@@ -632,10 +660,15 @@ const event: BotEvent = {
 
         if (!fullQuery.trim()) fullQuery = "Analisa o arquivo enviado.";
 
-        const { result: response, spinnerMsg } = await runWithSpinner(
+        await recordMessageEvent("order_received", message, fullQuery, { mode: "fwp" });
+
+        const { result: rawResponse, spinnerMsg } = await runWithSpinner(
           message,
           () => queryFwp(systemPrompt, message.author.id, fullQuery)
         );
+
+        const actionReports = await executeFwpActions(message, rawResponse);
+        const response = stripFwpActionBlocks(rawResponse);
 
         const files: AttachmentBuilder[] = [];
 
@@ -650,7 +683,8 @@ const event: BotEvent = {
           }
         }
 
-        const trimmed = truncate(response, 1900);
+        const finalResponse = actionReports.length > 0 ? `${response}\n\n${actionReports.join("\n")}` : response;
+        const trimmed = truncate(finalResponse, 1900);
         const embed = buildEmbed("Fawers", trimmed, "action");
 
         await spinnerMsg.delete().catch(() => {});

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { loadUserMemory, appendToUserMemory } from "./memory.js";
 import { logger } from "../utils/logger.js";
+import { recordMemorialEvent } from "./memorial.js";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
@@ -85,6 +86,11 @@ export async function queryGemini(
       const reply = response.text?.trim() || "Sem resposta gerada.";
 
       await appendToUserMemory(memoryKey, userQuery, reply);
+      await recordMemorialEvent({
+        type: "ai_response",
+        content: reply,
+        metadata: { provider: "gemini", memoryKey, model: GEMINI_MODEL, slot }
+      });
       logger.info({ memoryKey, model: GEMINI_MODEL, slot }, "Resposta Gemini gerada");
       return reply;
 
