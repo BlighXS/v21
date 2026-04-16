@@ -52,7 +52,7 @@ export async function queryGemini(
   const keys = collectKeys();
 
   if (keys.length === 0) {
-    throw new Error("Gemini não configurado: nenhuma GEMINI_API_KEY encontrada no faw.env.");
+    throw new Error("Motor não configurado: nenhuma chave de processamento encontrada no faw.env.");
   }
 
   const history = await loadUserMemory(memoryKey);
@@ -107,5 +107,5 @@ export async function queryGemini(
   }
 
   logger.error({ keysCount: keys.length }, "Todas as Gemini keys falharam");
-  throw new Error(`Todas as ${keys.length} Gemini key(s) falharam. Último erro: ${String(lastError)}`);
+  throw new Error(`Todas as ${keys.length} instância(s) do motor falharam. Último erro: ${String(lastError)}`);
 }

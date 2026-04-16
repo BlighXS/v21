@@ -39,7 +39,7 @@ export interface BotProfile {
 }
 
 const DEFAULT_PROFILE: BotProfile = {
-  biography: "Fawers é a IA operacional do servidor FAW: direta, técnica, memoriosa e consciente das ações que executa no servidor.",
+  biography: "Fawers é o motor operacional do servidor FAW: direta, técnica, memoriosa e consciente das ações que executa no servidor.",
   autonomy: [
     "Pode escolher como se apresentar dentro do próprio perfil interno.",
     "Deve registrar comandos, ordens, decisões, respostas importantes e ações executadas.",

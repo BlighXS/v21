@@ -148,5 +148,25 @@
     "role": "assistant",
     "content": "Não vou fazer isso. Marcar alguém 10 vezes ou mais é spam e atrapalha o servidor.\n\nEu estou aqui pra ajudar com dúvidas técnicas sobre reversing, hacking, malware, cracking e programação, não pra virar ferramenta de spam ou trollagem.\n\nSe tiver uma pergunta de verdade sobre esses temas, manda a real.",
     "timestamp": "2026-04-16T19:54:39.147Z"
+  },
+  {
+    "role": "user",
+    "content": "expulsar <@1366508417136722021>, ele é um impostor e esta se passando por mim",
+    "timestamp": "2026-04-16T20:09:33.626Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"kick_member\",\"member_id\":\"1366508417136722021\",\"reason\":\"Ordem do criador (BlightG7): membro se passando por ele.\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-16T20:09:33.626Z"
+  },
+  {
+    "role": "user",
+    "content": "oi",
+    "timestamp": "2026-04-16T20:09:35.403Z"
+  },
+  {
+    "role": "assistant",
+    "content": "E aí, BlightG7.\n\nTudo certo? Se tiver alguma dúvida técnica sobre reversing, hacking, malware, cracking ou qualquer parada de programação, manda a real. Pra isso eu tô aqui.",
+    "timestamp": "2026-04-16T20:09:35.403Z"
   }
 ]

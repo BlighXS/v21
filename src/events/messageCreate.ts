@@ -128,13 +128,26 @@ function isFwpOverloadError(error: unknown): boolean {
   );
 }
 
+function sanitizeFwpError(msg: string): string {
+  return msg
+    .replace(/gemini[-\s]?\d*[\.\d]*/gi, "FAWER")
+    .replace(/gemini/gi, "FAWER")
+    .replace(/google[\s_-]?gen[\s_-]?ai/gi, "FAWER")
+    .replace(/google/gi, "motor")
+    .replace(/openai/gi, "motor")
+    .replace(/anthropic/gi, "motor")
+    .replace(/api[\s_-]?key/gi, "chave interna")
+    .replace(/GEMINI_API_KEY[_\d]*/gi, "chave interna")
+    .replace(/AI_INTEGRATIONS[_\w]*/gi, "integração interna");
+}
+
 function formatFwpError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   if (isFwpOverloadError(error)) {
     return "CPU cheia, modelo passando fome de memória RAM. Tenta de novo daqui a pouco que eu volto menos miserável.";
   }
 
-  return raw || "Erro desconhecido";
+  return sanitizeFwpError(raw) || "Erro desconhecido";
 }
 
 function wait(ms: number): Promise<void> {
@@ -424,19 +437,19 @@ const event: BotEvent = {
           inline: true
         },
         {
-          name: "\u2022 Fawers IA",
+          name: "\u2022 Fawers",
           value: [
-            `\`${prefix}fwp <msg>\` \u2014 Chat com a IA`,
-            `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a IA`,
+            `\`${prefix}fwp <msg>\` \u2014 Conversa com a Fawers`,
+            `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a Fawers`,
             `\`${prefix}fwp limpar\` \u2014 Apaga mem\u00f3ria`,
-            `\`${prefix}setup fwp\` \u2014 Selecionar modelo da IA`,
-            `\`${prefix}ufwp\` \u2014 Desbloqueia a IA no canal`,
-            `\`${prefix}lfwp\` \u2014 Bloqueia a IA de volta`,
+            `\`${prefix}setup fwp\` \u2014 Selecionar vers\u00e3o da Fawers`,
+            `\`${prefix}ufwp\` \u2014 Desbloqueia a Fawers no canal`,
+            `\`${prefix}lfwp\` \u2014 Bloqueia a Fawers de volta`,
             `\`${prefix}fw music <nome>\` \u2014 Toca YouTube na call`,
             `\`${prefix}pe\` + .exe/.dll \u2014 An\u00e1lise de bin\u00e1rio PE`,
             `\`${prefix}projeto <tipo> [nome]\` \u2014 Gera projeto ZIP`,
             `\`${prefix}spf <pesquisa>\` \u2014 Busca Spotify`,
-            `\`${prefix}trainer\` \u2014 Treinar a IA`
+            `\`${prefix}trainer\` \u2014 Treinar a Fawers`
           ].join("\n"),
           inline: true
         },
@@ -669,7 +682,7 @@ const event: BotEvent = {
           .setStyle(ButtonStyle.Success)
       );
 
-      const embed = buildEmbed("Setup — Fawers", "Qual modelo você quer selecionar?", "info");
+      const embed = buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info");
       await message.reply({ embeds: [embed], components: [row] });
       return;
     }
@@ -867,7 +880,7 @@ const event: BotEvent = {
             const content = await readAttachmentText(att.url);
             fullQuery += `\n\n[Arquivo enviado: ${fname}]\n\`\`\`\n${content.slice(0, 6000)}\n\`\`\``;
           } else if (isImageAttachment(fname)) {
-            fullQuery += `\n\n[Imagem enviada: ${fname} — análise de imagem não suportada neste modelo]`;
+            fullQuery += `\n\n[Imagem enviada: ${fname} — análise de imagem não suportada neste momento]`;
           } else if (isPEFile(fname)) {
             fullQuery += `\n\n[Binário PE enviado: ${fname} — use \`${prefix}pe\` para análise completa de headers, imports e strings]`;
           } else {

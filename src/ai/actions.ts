@@ -24,7 +24,7 @@ function extractActions(text: string): FwpAction[] {
       if (parsed && typeof parsed === "object" && "actions" in parsed && Array.isArray(parsed.actions)) actions.push(...parsed.actions);
       else if (parsed && typeof parsed === "object") actions.push(parsed as FwpAction);
     } catch {
-      actions.push({ type: "remember", content: `A IA tentou emitir uma ação inválida: ${match[1].trim().slice(0, 500)}` });
+      actions.push({ type: "remember", content: `A Fawers tentou emitir uma ação inválida: ${match[1].trim().slice(0, 500)}` });
     }
   }
   return actions.slice(0, 5);
