@@ -39,7 +39,9 @@ function isRetryableError(err: unknown): boolean {
     msg.includes("expired") ||
     msg.includes("invalid") ||
     msg.includes("not valid") ||
-    msg.includes("not found")
+    msg.includes("not found") ||
+    msg.includes("invalid_endpoint") ||
+    msg.includes("endpoint")
   );
 }
 
@@ -57,6 +59,14 @@ export async function queryGemini(
 
   const history = await loadUserMemory(memoryKey);
 
+  const contents = [
+    ...history.map((m) => ({
+      role: m.role === "assistant" ? "model" as const : "user" as const,
+      parts: [{ text: m.content }]
+    })),
+    { role: "user" as const, parts: [{ text: userQuery }] }
+  ];
+
   let lastError: unknown;
 
   for (const { key, slot } of keys) {
@@ -70,21 +80,15 @@ export async function queryGemini(
         ai = new GoogleGenAI({ apiKey: key });
       }
 
-      const chatHistory = history.map((m) => ({
-        role: m.role === "assistant" ? "model" as const : "user" as const,
-        parts: [{ text: m.content }]
-      }));
-
-      const chat = ai.chats.create({
+      const response = await ai.models.generateContent({
         model,
-        history: chatHistory,
+        contents,
         config: {
           systemInstruction: systemPrompt,
           maxOutputTokens: 8192
         }
       });
 
-      const response = await chat.sendMessage({ message: userQuery });
       const reply = response.text?.trim() || "Sem resposta gerada.";
 
       await appendToUserMemory(memoryKey, userQuery, reply);
