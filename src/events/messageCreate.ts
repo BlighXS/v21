@@ -103,7 +103,17 @@ async function queryOllama(
     return queryGemini(systemPrompt, memoryKey, userQuery);
   }
   if (provider === "gemini-v3") {
-    return queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
+    try {
+      return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
+    } catch (err) {
+      const msg = String(err).toLowerCase();
+      const isQuota = msg.includes("429") || msg.includes("quota") || msg.includes("rate") || msg.includes("exhausted") || msg.includes("resource_exhausted");
+      if (isQuota) {
+        logger.warn({ err: String(err) }, "FAWER Flash V3.0 sem quota, caindo pro Beta");
+        return queryLocalOllama(systemPrompt, memoryKey, userQuery);
+      }
+      throw err;
+    }
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
