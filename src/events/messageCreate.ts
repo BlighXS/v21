@@ -13,6 +13,7 @@ import { handleBackupCommand } from "../backup/backup.js";
 import { searchTracks } from "../music/spotify.js";
 import { loadUserMemory, appendToUserMemory, clearUserMemory } from "../ai/memory.js";
 import { extractCodeBlocks, hasCodeBlocks, createZip, readAttachmentText, isTextAttachment, isImageAttachment } from "../ai/fileOps.js";
+import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } from "../ai/binaryAnalysis.js";
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
 
 function canRestart(member: GuildMember): boolean {
@@ -91,6 +92,7 @@ const event: BotEvent = {
             `\`${prefix}fwp <msg>\` \u2014 Chat com a IA`,
             `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a IA`,
             `\`${prefix}fwp limpar\` \u2014 Apaga mem\u00f3ria`,
+            `\`${prefix}pe\` + .exe/.dll \u2014 An\u00e1lise de bin\u00e1rio PE`,
             `\`${prefix}projeto <tipo> [nome]\` \u2014 Gera projeto ZIP`,
             `\`${prefix}spf <pesquisa>\` \u2014 Busca Spotify`,
             `\`${prefix}trainer\` \u2014 Treinar a IA`
@@ -304,6 +306,97 @@ const event: BotEvent = {
       return;
     }
 
+    if (command === "pe") {
+      const attachments = [...message.attachments.values()];
+      const peFile = attachments.find((a) => isPEFile(a.name ?? ""));
+
+      if (!peFile) {
+        const fields = [
+          { name: "Uso", value: `Envie \`${prefix}pe\` junto com um arquivo \`.exe\`, \`.dll\`, \`.sys\`, \`.drv\`, etc.`, inline: false },
+          { name: "O que é extraído", value: "PE headers, arquitetura, seções, tabela de imports, strings ASCII", inline: false }
+        ];
+        const embed = buildEmbedFields("Análise de Binário PE", fields, "info");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+
+      const temp = await message.reply("🔬 Analisando binário...");
+      const start = Date.now();
+
+      try {
+        const report = await downloadAndParsePE(peFile.url);
+        const fname = peFile.name ?? "binario";
+        const summary = formatPEReport(report, fname);
+        const stringsContent = buildStringsAttachment(report);
+
+        const files: AttachmentBuilder[] = [];
+
+        // Full report as text file
+        const reportLines: string[] = [
+          `=== Relatório PE — ${fname} ===`,
+          `Tamanho: ${(report.fileInfo.size / 1024).toFixed(1)} KB | Tipo: ${report.fileInfo.type}`,
+          ""
+        ];
+
+        if (report.peHeader) {
+          reportLines.push("[COFF Header]");
+          reportLines.push(`  Arquitetura : ${report.peHeader.machine}`);
+          reportLines.push(`  Seções      : ${report.peHeader.sections}`);
+          reportLines.push(`  Timestamp   : ${report.peHeader.timestamp}`);
+          reportLines.push(`  Flags       : ${report.peHeader.characteristics.join(" | ")}`);
+          reportLines.push("");
+        }
+
+        if (report.optionalHeader) {
+          reportLines.push("[Optional Header]");
+          reportLines.push(`  Formato     : ${report.optionalHeader.magic}`);
+          reportLines.push(`  Subsistema  : ${report.optionalHeader.subsystem}`);
+          reportLines.push(`  Image Base  : ${report.optionalHeader.imageBase}`);
+          reportLines.push(`  Entry Point : ${report.optionalHeader.entryPoint}`);
+          reportLines.push(`  Linker      : ${report.optionalHeader.linkerVersion}`);
+          reportLines.push(`  Img Size    : ${report.optionalHeader.sizeOfImage}`);
+          reportLines.push("");
+        }
+
+        if (report.sections.length > 0) {
+          reportLines.push("[Seções]");
+          for (const sec of report.sections) {
+            reportLines.push(`  ${sec.name.padEnd(10)} VA=${sec.virtualAddress.padEnd(12)} raw=${sec.rawSize.padEnd(14)} [${sec.characteristics}]`);
+          }
+          reportLines.push("");
+        }
+
+        if (report.imports.length > 0) {
+          reportLines.push("[Imports]");
+          for (const imp of report.imports) {
+            reportLines.push(`  ${imp.dll}`);
+            for (const fn of imp.functions) {
+              reportLines.push(`    - ${fn}`);
+            }
+          }
+          reportLines.push("");
+        }
+
+        reportLines.push("[Strings]");
+        reportLines.push(...report.strings.map(s => `  ${s}`));
+
+        const fullReport = reportLines.join("\n");
+        files.push(new AttachmentBuilder(Buffer.from(fullReport, "utf8"), { name: `${fname}_pe_report.txt` }));
+
+        const trimmed = summary.length > 1900 ? summary.slice(0, 1900) + "\n..." : summary;
+        const embed = buildEmbed("Fawers — Binário PE", trimmed, "action");
+
+        await temp.edit({ content: "", embeds: [embed], files });
+        logger.info({ command: "pe", file: fname, durationMs: Date.now() - start, valid: report.valid }, "Análise PE concluída");
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Erro desconhecido";
+        const embed = buildEmbed("Falha — Análise PE", msg, "error");
+        await temp.edit({ content: "", embeds: [embed] });
+        logger.error({ error, command: "pe" }, "Análise PE falhou");
+      }
+      return;
+    }
+
     if (command === "fwp") {
       const sub = parts[0]?.toLowerCase();
 
@@ -344,6 +437,8 @@ const event: BotEvent = {
             fullQuery += `\n\n[Arquivo enviado: ${fname}]\n\`\`\`\n${content.slice(0, 6000)}\n\`\`\``;
           } else if (isImageAttachment(fname)) {
             fullQuery += `\n\n[Imagem enviada: ${fname} — análise de imagem não suportada neste modelo]`;
+          } else if (isPEFile(fname)) {
+            fullQuery += `\n\n[Binário PE enviado: ${fname} — use \`${prefix}pe\` para análise completa de headers, imports e strings]`;
           } else {
             fullQuery += `\n\n[Arquivo binário enviado: ${fname} — não é possível ler o conteúdo]`;
           }
