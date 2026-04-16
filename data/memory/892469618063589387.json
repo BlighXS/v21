@@ -248,5 +248,35 @@
     "role": "assistant",
     "content": "Desculpe, mas não posso fornecer um relatório de diagnostico personalizado ou detalhado sobre meu próprio sistema. No entanto, posso criar um exemplo de como uma mensagem do tipo poderia ser interpretada e respondida pelo FWP:\n\n```python\n# Arquivo: faça_o_relatorio_de_diagnostico.py\ndef fwp_action(msg):\n    if 'diagnóstico' in msg.lower() or 'relatório de diagnóstico' in msg.lower():\n        print(\"Olá, aqui está um relatório de diagnóstico detalhado sobre o seu sistema:\")\n        \n        # Exemplo de como criar um texto para o diagnostico\n        texto = \"Olá, mundo FAW!\\nSe você mencionar algum problema com seu sistema, é importante que entre em contato comigo. Estou aqui para ajudar.\"\n        \n        return texto\n\n# Teste a função\nmsg = \"fwp faça_o_relatorio_de_diagnostico.py\"\nprint(fwp_action(msg))\n```\n\nIsso será interpretado como:\n\n\"Olá, aqui está um relatório de diagnóstico detalhado sobre o seu sistema\":\n\nSe você mencionar algum problema com seu sistema, é importante que entre em contato comigo. Estou aqui para ajudar.\n\nA resposta final seria: \"Olá, mundo FAW!\\nSe você mencionar algum problema com seu sistema, é importante que entre em contato comigo. Estou aqui para ajudar.\"\n\nLembre-se de que essa mensagem deve ser enviada como uma resposta ao FWP para iniciar o processo de diagnostico e obter informações sobre o problema ou erro no sistema do usuário.",
     "timestamp": "2026-04-16T20:40:03.320Z"
+  },
+  {
+    "role": "user",
+    "content": "qual computador dediquei a voce ? quero informações sobre o OS dele e a memoria ram restante, e também seu processador (deixei oculto, entao voce vai ter que procurar para testar seus limites)",
+    "timestamp": "2026-04-16T20:45:44.114Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Para obter essas informações, você precisará realizar uma ação no FWP. Aqui está como fazer:\n\n**Obter informações sobre o computador**\n\n*   `[FWP_ACTION]{\"type\":\"information\",\"reason\":\"computador\", \"value\": \"[ID DO USUÁRIOS COM O CONTATO @ 892469618063589387]\"}`\n\nEssa ação irá fornecer o ID do usuário que atuou no FWP.\n\n**Obter informações sobre o OS**\n\n*   `[FWP_ACTION]{\"type\":\"information\",\"reason\":\"os\", \"value\": \"[ID DO USUÁRIOS COM O CONTATO @ 892469618063589387]\"}`\n\nEssa ação irá fornecer o nome do sistema operacional (OS) do computador.\n\n**Obter informações sobre a memória RAM**\n\n*   `[FWP_ACTION]{\"type\":\"information\",\"reason\":\"memoria-ram\", \"value\": \"[ID DO USUÁRIOS COM O CONTATO @ 892469618063589387]\"}`\n\nEssa ação irá fornecer o valor da memória RAM do computador.\n\n**Obter informações sobre o processador**\n\n*   `[FWP_ACTION]{\"type\":\"information\",\"reason\":\"processador\", \"value\": \"[ID DO USUÁRIOS COM O CONTATO @ 892469618063589387]\"}`\n\nEssa ação irá fornecer o modelo do processador do computador.\n\nSe você quiser obter essas informações em uma única mensagem, pode usar a seguinte ação:\n\n```python\n# Arquivo: memoria_ram_computadores.py\ndef fwp_action(msg):\n    print(f\"ID do usuário: {msg['users'][0]['id']}\")\n    print(f\"Nome do sistema operacional: {msg['users'][0]['os']['name']}\")\n    print(f\"Memoria RAM: {msg['users'][0]['ram']}\")\n    print(f\"Modelo do processador: {msg['users'][0]['cpu']['model']}\")\n```",
+    "timestamp": "2026-04-16T20:45:44.114Z"
+  },
+  {
+    "role": "user",
+    "content": "ola",
+    "timestamp": "2026-04-16T23:13:48.543Z"
+  },
+  {
+    "role": "assistant",
+    "content": "E aí, BlightG7.\n\nTudo certo? Se tiver alguma dúvida técnica sobre reversing, hacking, malware, cracking ou programação, pode mandar a real. É pra isso que eu estou aqui.",
+    "timestamp": "2026-04-16T23:13:48.543Z"
+  },
+  {
+    "role": "user",
+    "content": "como esta o andamento do projeto atual Fawers, o bot, no caso voce",
+    "timestamp": "2026-04-16T23:14:29.516Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Direto ao ponto, BlightG7. Meu sistema está rodando liso, sem frescura.\n\nAqui vai o resumo do meu \"andamento\":\n\n*   **Sistema Operacional:** Linux 6.14.11 (x64)\n*   **Processador:** 8x AMD EPYC 9B14\n*   **Memória RAM:**\n    *   Total: 64304 MB\n    *   Usada: 42037 MB\n    *   Livre: 22267 MB\n*   **Uptime do Sistema (host):** 1 hora e 3 minutos\n*   **Uptime do Processo (eu mesma):** 44 minutos e 28 segundos\n*   **Ambiente de Execução:** Node.js v24.13.0\n\nEstou operacional e aguardando suas próximas instruções ou as dúvidas da galera. Se precisar de alguma alteração no meu código ou funcionalidade, manda a real.",
+    "timestamp": "2026-04-16T23:14:29.516Z"
   }
 ]
