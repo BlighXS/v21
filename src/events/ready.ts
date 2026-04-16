@@ -4,7 +4,7 @@ import { buildEmbed } from "../utils/format.js";
 import { scheduleDailyBackup } from "../backup/scheduler.js";
 
 const event: BotEvent = {
-  name: "ready",
+  name: "clientReady",
   once: true,
   async execute(client) {
     logger.info({ user: client.user?.tag }, "Bot online");
