@@ -455,21 +455,21 @@ const event: BotEvent = {
         return;
       }
       await enableFreeMode(message.channelId);
+      const embed = buildEmbed("Fawers — Modo Livre ativado", "A IA está desbloqueada neste canal. Ela vai interagir por conta própria.", "ok");
+      await message.reply({ embeds: [embed] });
       const trainingData = await loadTrainingData();
       const systemPrompt = (trainingData.compiledIdentity || trainingData.baseIdentity) + FREE_MODE_SYSTEM_SUFFIX;
       const memoryKey = `channel_${message.channelId}`;
-      const intro = await (async () => {
+      (async () => {
         try {
-          return await queryOllama(systemPrompt, memoryKey, "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença.");
+          const intro = await queryOllama(systemPrompt, memoryKey, "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença.");
+          if (intro && !intro.startsWith("[SILENT]")) {
+            await message.channel.send(truncate(intro, 1900));
+          }
         } catch {
-          return null;
+          // intro opcional, falha silenciosa
         }
       })();
-      const embed = buildEmbed("Fawers — Modo Livre ativado", "A IA está desbloqueada neste canal. Ela vai interagir por conta própria.", "ok");
-      await message.reply({ embeds: [embed] });
-      if (intro && !intro.startsWith("[SILENT]")) {
-        await message.channel.send(truncate(intro, 1900));
-      }
       logger.info({ channel: message.channelId, by: message.author.id }, "Free mode ativado");
       return;
     }
