@@ -1,7 +1,17 @@
-import type { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import type {
+  ChatInputCommandInteraction,
+  SlashCommandBuilder,
+  SlashCommandOptionsOnlyBuilder,
+  SlashCommandSubcommandsOnlyBuilder
+} from "discord.js";
+
+export type AnySlashCommandBuilder =
+  | SlashCommandBuilder
+  | SlashCommandOptionsOnlyBuilder
+  | SlashCommandSubcommandsOnlyBuilder;
 
 export interface SlashCommand {
-  data: SlashCommandBuilder;
+  data: AnySlashCommandBuilder;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
   adminOnly?: boolean;
 }

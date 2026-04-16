@@ -3,9 +3,9 @@ import { logger } from "../utils/logger.js";
 import { handleTrainerButton } from "../training/trainer.js";
 import { handleServerSetupButton } from "../setup/serverSetup.js";
 import { handleBackupButton, handleBackupSelect } from "../backup/backup.js";
-// import { handleSpotifyButton, handleSpotifySelect } from "../music/spfCommand.js";
 import { isAdmin } from "../utils/permissions.js";
 import { config } from "../utils/config.js";
+import { sendToLogChannel } from "../utils/logChannel.js";
 
 const event: BotEvent = {
   name: "interactionCreate",
@@ -17,17 +17,11 @@ const event: BotEvent = {
       if (handledSetup) return;
       const handledBackup = await handleBackupButton(interaction);
       if (handledBackup) return;
-      // Spotify disabled
-      // const handledSpotify = await handleSpotifyButton(interaction);
-      // if (handledSpotify) return;
     }
 
     if (interaction.isStringSelectMenu()) {
       const handledSelect = await handleBackupSelect(interaction);
       if (handledSelect) return;
-      // Spotify disabled
-      // const handledSpotifySelect = await handleSpotifySelect(interaction);
-      // if (handledSpotifySelect) return;
     }
 
     if (!interaction.isChatInputCommand()) return;
@@ -37,7 +31,7 @@ const event: BotEvent = {
 
     if (command.adminOnly && !isAdmin(interaction)) {
       const { buildEmbed } = await import("../utils/format.js");
-      const embed = buildEmbed("Acesso negado", "Sem permissao para este comando.", "warn");
+      const embed = buildEmbed("Acesso negado", "Voc\u00ea n\u00e3o tem permiss\u00e3o para usar este comando.", "warn");
       await interaction.reply({ embeds: [embed], ephemeral: true });
       return;
     }
@@ -53,27 +47,28 @@ const event: BotEvent = {
         channelId: interaction.channelId,
         guildId: interaction.guildId,
         durationMs
-      }, "Command executed");
+      }, "Comando executado");
     } catch (error) {
-      logger.error({ error, command: interaction.commandName }, "Command error");
-      const content = "Ocorreu um erro ao executar o comando.";
+      logger.error({ error, command: interaction.commandName }, "Erro no comando");
 
-      if (interaction.deferred || interaction.replied) {
-        const { buildEmbed } = await import("../utils/format.js");
-        const embed = buildEmbed("Erro", content, "error");
-        await interaction.followUp({ embeds: [embed], ephemeral: true });
-      } else {
-        const { buildEmbed } = await import("../utils/format.js");
-        const embed = buildEmbed("Erro", content, "error");
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-      }
+      const { buildEmbed } = await import("../utils/format.js");
+      const errMsg = error instanceof Error ? error.message : "Erro desconhecido";
+      const embed = buildEmbed("Erro", "Ocorreu um erro ao executar o comando.", "error");
 
-      if (config.LOG_CHANNEL_ID) {
-        const channel = interaction.client.channels.cache.get(config.LOG_CHANNEL_ID);
-        if (channel && channel.isTextBased()) {
-          await channel.send(`Erro no comando ${interaction.commandName} por ${interaction.user.tag}`);
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.followUp({ embeds: [embed], ephemeral: true });
+        } else {
+          await interaction.reply({ embeds: [embed], ephemeral: true });
         }
-      }
+      } catch { /* falha ao responder */ }
+
+      await sendToLogChannel(
+        interaction.client,
+        "Erro em Comando",
+        `Comando: \`${interaction.commandName}\`\nUsu\u00e1rio: ${interaction.user.tag} (${interaction.user.id})\nErro: ${errMsg}`,
+        "error"
+      );
     }
   }
 };

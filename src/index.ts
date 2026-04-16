@@ -15,14 +15,19 @@ if (fs.existsSync(fawEnvPath)) {
 
 const { config } = await import("./utils/config.js");
 
-const intents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates];
+const intents = [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildMembers
+];
+
 if (config.ENABLE_PREFIX) {
   intents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
 }
 
 const client = new Client({
   intents,
-  partials: [Partials.Channel]
+  partials: [Partials.Channel, Partials.GuildMember]
 });
 
 client.commands = new Collection();
@@ -31,9 +36,9 @@ await loadCommands(client);
 await loadEvents(client);
 
 if (config.DISCORD_CLIENT_ID) {
-await registerSlashCommands();
+  await registerSlashCommands();
 } else {
-  logger.warn("DISCORD_CLIENT_ID ausente: comandos slash nao serao registrados");
+  logger.warn("DISCORD_CLIENT_ID ausente: comandos slash n\u00e3o ser\u00e3o registrados");
 }
 
 client.login(config.DISCORD_TOKEN);
@@ -51,12 +56,12 @@ async function registerSlashCommands() {
         Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID),
         { body: commandsJson }
       );
-      logger.info("Registered guild commands");
+      logger.info({ count: commandsJson.length }, "Comandos registrados na guild");
     } else {
       await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), { body: commandsJson });
-      logger.info("Registered global commands");
+      logger.info({ count: commandsJson.length }, "Comandos globais registrados");
     }
   } catch (error) {
-    logger.error({ error }, "Failed to register commands");
+    logger.error({ error }, "Falha ao registrar comandos");
   }
 }
