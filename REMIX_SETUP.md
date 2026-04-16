@@ -1,31 +1,44 @@
 # Setup após Remix
 
-## Integração Gemini (V2 e V3)
+## Integração Gemini — V2 e V3
 
-Após fazer o remix deste projeto, o código já está pronto, mas você precisa ativar a integração Gemini manualmente para os modelos V2 e V3 funcionarem.
+Após fazer o remix deste projeto, o código já está pronto, mas você precisa ativar as integrações manualmente.
 
-### Instrução para o agente de IA do Replit
-
-Cole o seguinte para o agente configurar tudo automaticamente:
+### Instrução para o agente de IA do Replit (Gemini)
 
 > "Configure a integração nativa do Replit com o Gemini. Chame `setupReplitAIIntegrations` com `providerSlug: 'gemini'`, `providerUrlEnvVarName: 'AI_INTEGRATIONS_GEMINI_BASE_URL'` e `providerApiKeyEnvVarName: 'AI_INTEGRATIONS_GEMINI_API_KEY'`. Depois reinicie o bot."
 
-### O que isso faz
+---
 
-- Provisiona automaticamente as variáveis de ambiente `AI_INTEGRATIONS_GEMINI_BASE_URL` e `AI_INTEGRATIONS_GEMINI_API_KEY`
-- Não exige chave de API própria do Google
+## Integração OpenAI — V4
+
+### Instrução para o agente de IA do Replit (OpenAI)
+
+> "Configure a integração nativa do Replit com o OpenAI. Chame `setupReplitAIIntegrations` com `providerSlug: 'openai'`, `providerUrlEnvVarName: 'AI_INTEGRATIONS_OPENAI_BASE_URL'` e `providerApiKeyEnvVarName: 'AI_INTEGRATIONS_OPENAI_API_KEY'`. Depois reinicie o bot."
+
+---
+
+## O que cada integração faz
+
+- Não exige chave de API própria do Google ou OpenAI
 - O uso é cobrado nos créditos Replit da sua conta
+- As variáveis de ambiente são provisionadas automaticamente
 
-### Modelos configurados
+---
 
-| Comando no Discord | Modelo |
-|---|---|
-| `;setup fwp` → Beta | `llama3.2:1b` (roda local, sem custo) |
-| `;setup fwp` → FAWER_V2.01 | `gemini-2.5-flash` (usa créditos Replit) |
-| `;setup fwp` → FAWER Flash V3.0 | `gemini-3-flash-preview` (usa créditos Replit) |
+## Modelos configurados
 
-### Observações
+| Botão no `;setup fwp` | Modelo | Custo |
+|---|---|---|
+| Beta | `llama3.2:1b` (roda local via Ollama) | Sem custo externo |
+| FAWER_V2.01 | `gemini-2.5-flash` (integração Gemini) | Créditos Replit |
+| FAWER Flash V3.0 | `gemini-3-flash-preview` (integração Gemini) | Créditos Replit |
+| FAWER V4 (ChatGPT) | `gpt-5.2` (integração OpenAI) | Créditos Replit |
 
-- O modelo Beta (Ollama) funciona sem nenhuma configuração extra, mas você precisa baixar o modelo rodando `ollama pull llama3.2:1b` no shell
+---
+
+## Observações
+
+- O modelo Beta (Ollama) funciona sem configuração extra, mas você precisa baixar o modelo rodando `ollama pull llama3.2:1b` no shell
 - A seleção de modelo é **global** — o que você definir no `;setup fwp` vale para todos os usuários do servidor
-- Não há fallback entre modelos: se o modelo configurado falhar, o bot reporta o erro sem trocar de modelo automaticamente
+- Não há fallback entre modelos: se o modelo configurado falhar, o bot reporta o erro diretamente

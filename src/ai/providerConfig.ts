@@ -6,7 +6,7 @@ import { logger } from "../utils/logger.js";
 const DATA_DIR = join(process.cwd(), "data");
 const PROVIDER_FILE = join(DATA_DIR, "provider.json");
 
-export type AIProvider = "ollama" | "gemini" | "gemini-v3";
+export type AIProvider = "ollama" | "gemini" | "gemini-v3" | "openai-v4";
 
 interface ProviderState {
   provider: AIProvider;

@@ -21,6 +21,7 @@ import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.j
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 import { getProvider } from "../ai/providerConfig.js";
 import { queryGemini, GEMINI_MODEL_V3 } from "../ai/gemini.js";
+import { queryOpenAI } from "../ai/openai.js";
 import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks } from "../ai/actions.js";
 
@@ -104,6 +105,9 @@ async function queryOllama(
   }
   if (provider === "gemini-v3") {
     return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
+  }
+  if (provider === "openai-v4") {
+    return await queryOpenAI(systemPrompt, memoryKey, userQuery);
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
@@ -679,7 +683,11 @@ const event: BotEvent = {
         new ButtonBuilder()
           .setCustomId("fwp_model_v3")
           .setLabel("FAWER Flash V3.0")
-          .setStyle(ButtonStyle.Success)
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("fwp_model_v4")
+          .setLabel("FAWER V4 (ChatGPT)")
+          .setStyle(ButtonStyle.Danger)
       );
 
       const embed = buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info");
