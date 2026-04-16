@@ -100,32 +100,10 @@ async function queryOllama(
 ): Promise<string> {
   const provider = await getProvider();
   if (provider === "gemini") {
-    try {
-      return await queryGemini(systemPrompt, memoryKey, userQuery);
-    } catch (err) {
-      logger.warn({ err: String(err) }, "V2.01 falhou, caindo pro Beta");
-      const betaResponse = await queryLocalOllama(systemPrompt, memoryKey, userQuery);
-      return `> ⚠️ V2 indisponível, respondi no Beta.\n\n${betaResponse}`;
-    }
+    return await queryGemini(systemPrompt, memoryKey, userQuery);
   }
   if (provider === "gemini-v3") {
-    try {
-      return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
-    } catch (err) {
-      logger.warn({ err: String(err) }, "FAWER Flash V3.0 falhou, tentando V2.01");
-      try {
-        const v2response = await queryGemini(systemPrompt, memoryKey, userQuery);
-        return `> ⚠️ V3 indisponível, respondi no V2.01.\n\n${v2response}`;
-      } catch (err2) {
-        logger.warn({ err: String(err2) }, "V2.01 também falhou, caindo pro Beta");
-        try {
-          const betaResponse = await queryLocalOllama(systemPrompt, memoryKey, userQuery);
-          return `> ⚠️ V3 e V2 indisponíveis, respondi no Beta.\n\n${betaResponse}`;
-        } catch (err3) {
-          throw err3;
-        }
-      }
-    }
+    return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
