@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "OdIHvF8O3H05uTzkT-sG5"
+uri = "file://REMIX_SETUP.md"
+type = "text"
+title = "REMIX_SETUP.md — Guia de configuração pós-remix"
