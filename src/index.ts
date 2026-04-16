@@ -8,17 +8,16 @@ import { logger } from "./utils/logger.js";
 
 const fawEnvPath = path.join(process.cwd(), "faw.env");
 if (fs.existsSync(fawEnvPath)) {
-  dotenv.config({ path: fawEnvPath });
+  dotenv.config({ path: fawEnvPath, override: true });
 } else {
-  dotenv.config();
+  dotenv.config({ override: true });
 }
 
 const { config } = await import("./utils/config.js");
 
 const intents = [
   GatewayIntentBits.Guilds,
-  GatewayIntentBits.GuildVoiceStates,
-  GatewayIntentBits.GuildMembers
+  GatewayIntentBits.GuildVoiceStates
 ];
 
 if (config.ENABLE_PREFIX) {
@@ -27,7 +26,7 @@ if (config.ENABLE_PREFIX) {
 
 const client = new Client({
   intents,
-  partials: [Partials.Channel, Partials.GuildMember]
+  partials: [Partials.Channel]
 });
 
 client.commands = new Collection();
