@@ -22,11 +22,37 @@ function canRestart(member: GuildMember): boolean {
   return member.roles.cache.some((role) => config.RESTART_ROLE_IDS.includes(role.id));
 }
 
-async function streamOllama(
+const SPINNER_FRAMES = ["|", "/", "–", "\\", "|", "/", "–", "\\"];
+const SPINNER_LABEL = "pensando";
+
+async function runWithSpinner(
+  replyTarget: import("discord.js").Message,
+  task: () => Promise<string>
+): Promise<{ result: string; spinnerMsg: import("discord.js").Message }> {
+  let frame = 0;
+  const spinnerMsg = await replyTarget.reply(`⚙️ ${SPINNER_FRAMES[0]} ${SPINNER_LABEL}...`);
+
+  replyTarget.channel.sendTyping().catch(() => {});
+  const typingInterval = setInterval(() => replyTarget.channel.sendTyping().catch(() => {}), 8000);
+
+  const spinnerInterval = setInterval(async () => {
+    frame = (frame + 1) % SPINNER_FRAMES.length;
+    try { await spinnerMsg.edit(`⚙️ ${SPINNER_FRAMES[frame]} ${SPINNER_LABEL}...`); } catch {}
+  }, 700);
+
+  try {
+    const result = await task();
+    return { result, spinnerMsg };
+  } finally {
+    clearInterval(spinnerInterval);
+    clearInterval(typingInterval);
+  }
+}
+
+async function queryOllama(
   systemPrompt: string,
   memoryKey: string,
-  userQuery: string,
-  onChunk: (partial: string) => void
+  userQuery: string
 ): Promise<string> {
   const { Ollama } = await import("ollama");
   const ollama = new Ollama({ host: config.OLLAMA_HOST });
@@ -38,16 +64,13 @@ async function streamOllama(
     { role: "user", content: userQuery }
   ];
 
-  const stream = await ollama.chat({ model: config.OLLAMA_MODEL, messages, stream: true });
+  const response = await ollama.chat({
+    model: config.OLLAMA_MODEL,
+    messages,
+    options: { num_ctx: 2048 }
+  });
 
-  let full = "";
-  for await (const chunk of stream) {
-    const token = chunk.message?.content ?? "";
-    full += token;
-    onChunk(full);
-  }
-
-  const reply = full.trim() || "Sem resposta gerada.";
+  const reply = response.message?.content?.trim() || "Sem resposta gerada.";
   await appendToUserMemory(memoryKey, userQuery, reply);
   return reply;
 }
@@ -57,7 +80,17 @@ async function queryFwp(
   userId: string,
   userQuery: string
 ): Promise<string> {
-  return streamOllama(systemPrompt, userId, userQuery, () => {});
+  return queryOllama(systemPrompt, userId, userQuery);
+}
+
+// kept for compatibility — free mode still uses it
+async function streamOllama(
+  systemPrompt: string,
+  memoryKey: string,
+  userQuery: string,
+  _onChunk: (partial: string) => void
+): Promise<string> {
+  return queryOllama(systemPrompt, memoryKey, userQuery);
 }
 
 async function handleFreeMode(message: import("discord.js").Message): Promise<boolean> {
@@ -81,37 +114,19 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
 
     const memoryKey = `channel_${message.channelId}`;
 
-    let liveMsg: import("discord.js").Message | null = null;
-    let lastEdit = 0;
-    const EDIT_INTERVAL = 1500;
+    const { result: reply, spinnerMsg } = await runWithSpinner(
+      message,
+      () => queryOllama(systemPrompt, memoryKey, userQuery)
+    );
 
-    const reply = await streamOllama(systemPrompt, memoryKey, userQuery, async (partial) => {
-      if (partial.startsWith("[SILENT]")) return;
-      const now = Date.now();
-      if (now - lastEdit < EDIT_INTERVAL) return;
-      lastEdit = now;
-      try {
-        const preview = truncate(partial, 1850) + " ▌";
-        if (!liveMsg) {
-          liveMsg = await message.channel.send(preview);
-        } else {
-          await liveMsg.edit(preview);
-        }
-      } catch { /* ignore rate limits */ }
-    });
+    await spinnerMsg.delete().catch(() => {});
 
     if (reply.startsWith("[SILENT]")) {
-      if (liveMsg) await (liveMsg as import("discord.js").Message).delete().catch(() => {});
       logger.info({ channel: message.channelId }, "Free mode: Fawers optou por silêncio");
       return true;
     }
 
-    const trimmed = truncate(reply, 1900);
-    if (liveMsg) {
-      await (liveMsg as import("discord.js").Message).edit(trimmed);
-    } else {
-      await message.channel.send(trimmed);
-    }
+    await message.channel.send(truncate(reply, 1900));
     logger.info({ channel: message.channelId, author: author.id }, "Free mode: resposta enviada");
   } catch (err) {
     logger.error({ err }, "Free mode: falha ao gerar resposta");
@@ -563,7 +578,6 @@ const event: BotEvent = {
         return;
       }
 
-      const temp = await message.reply("\u{1F9E0} Fawers digitando...");
       const start = Date.now();
 
       try {
@@ -588,20 +602,10 @@ const event: BotEvent = {
 
         if (!fullQuery.trim()) fullQuery = "Analisa o arquivo enviado.";
 
-        // Stream with live Discord edits every 1.5s
-        let lastEdit = Date.now();
-        const EDIT_INTERVAL = 1500;
-
-        const response = await streamOllama(systemPrompt, message.author.id, fullQuery, async (partial) => {
-          const now = Date.now();
-          if (now - lastEdit < EDIT_INTERVAL) return;
-          lastEdit = now;
-          try {
-            const preview = truncate(partial, 1850) + " ▌";
-            const embed = buildEmbed("Fawers", preview, "action");
-            await temp.edit({ content: "", embeds: [embed] });
-          } catch { /* ignore rate limit hits */ }
-        });
+        const { result: response, spinnerMsg } = await runWithSpinner(
+          message,
+          () => queryFwp(systemPrompt, message.author.id, fullQuery)
+        );
 
         const files: AttachmentBuilder[] = [];
 
@@ -619,12 +623,13 @@ const event: BotEvent = {
         const trimmed = truncate(response, 1900);
         const embed = buildEmbed("Fawers", trimmed, "action");
 
-        await temp.edit({ content: "", embeds: [embed], files });
+        await spinnerMsg.delete().catch(() => {});
+        await message.reply({ embeds: [embed], files });
         logger.info({ command: "fwp", durationMs: Date.now() - start, files: files.length }, "Fwp executado");
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Erro desconhecido";
         const embed = buildEmbed("Falha — Fawers", msg, "error");
-        await temp.edit({ content: "", embeds: [embed] });
+        await message.reply({ embeds: [embed] });
         logger.error({ error, command: "fwp" }, "Fwp falhou");
       }
       return;

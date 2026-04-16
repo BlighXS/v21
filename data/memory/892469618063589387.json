@@ -8,5 +8,15 @@
     "role": "assistant",
     "content": "Estamos aqui no FAW (Fawer Blight) Server! É um espaço de aprendizado e compartilhamento técnico para engenharia reversa, hacking, análise de malware, cracking de software/licenças, desenvolvimento de ferramentas e laboratórios de código. Se você é um hacker ou uma pessoa com interesses em reversing e hacking, este é o lugar certo para você!",
     "timestamp": "2026-04-16T07:32:16.998Z"
+  },
+  {
+    "role": "user",
+    "content": "oi",
+    "timestamp": "2026-04-16T07:38:37.495Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Estamos aqui! Quer conversar sobre reverse engineering, hacking, análise de malware ou algum outro assunto técnico? Estou aqui para ajudar!",
+    "timestamp": "2026-04-16T07:38:37.495Z"
   }
 ]
