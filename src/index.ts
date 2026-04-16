@@ -17,13 +17,10 @@ const { config } = await import("./utils/config.js");
 
 const intents = [
   GatewayIntentBits.Guilds,
-  GatewayIntentBits.GuildVoiceStates
+  GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildMembers,
+  GatewayIntentBits.GuildPresences
 ];
-
-// GuildMembers e GuildPresences são intents privilegiados.
-// Para ativar: Discord Developer Portal → Bot → Privileged Gateway Intents → ative ambos → salve.
-// Depois descomente as linhas abaixo e reinicie o bot.
-// intents.push(GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildPresences);
 
 if (config.ENABLE_PREFIX) {
   intents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
