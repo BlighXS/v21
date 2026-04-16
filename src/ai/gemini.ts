@@ -4,10 +4,16 @@ import { logger } from "../utils/logger.js";
 import { recordMemorialEvent } from "./memorial.js";
 
 const GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
-export const GEMINI_MODEL_V3 = "gemini-2.0-flash";
+export const GEMINI_MODEL_V3 = "gemini-3-flash-preview";
 
 function collectKeys(): Array<{ key: string; slot: string }> {
   const entries: Array<{ key: string; slot: string }> = [];
+
+  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
+  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim();
+  if (replitKey && replitBase) {
+    entries.push({ key: `replit::${replitKey}::${replitBase}`, slot: "replit-integration" });
+  }
 
   const base = process.env.GEMINI_API_KEY?.trim();
   if (base) entries.push({ key: base, slot: "key_1" });
@@ -15,12 +21,6 @@ function collectKeys(): Array<{ key: string; slot: string }> {
   for (let i = 2; i <= 20; i++) {
     const k = process.env[`GEMINI_API_KEY_${i}`]?.trim();
     if (k) entries.push({ key: k, slot: `key_${i}` });
-  }
-
-  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
-  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim();
-  if (replitKey && replitBase) {
-    entries.push({ key: `replit::${replitKey}::${replitBase}`, slot: "replit-integration" });
   }
 
   return entries;
