@@ -1,6 +1,7 @@
 import { ActivityType, ChannelType, PermissionsBitField } from "discord.js";
 import type { Guild, Message } from "discord.js";
 import { addBotPreference, recordMessageEvent, updateBotBiography } from "./memorial.js";
+import { readSourceFile, writeSourceFile, listSourceFiles } from "../utils/sysinfo.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -12,7 +13,10 @@ type FwpAction =
   | { type: "ban_member"; userId?: string; reason?: string }
   | { type: "kick_member"; userId?: string; reason?: string }
   | { type: "set_biography"; biography?: string }
-  | { type: "remember"; content?: string };
+  | { type: "remember"; content?: string }
+  | { type: "read_source_file"; path?: string }
+  | { type: "write_source_file"; path?: string; content?: string }
+  | { type: "list_source_files"; dir?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text.replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "").trim();
@@ -265,6 +269,47 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
   }
 }
 
+async function executeReadSourceFile(message: Message, action: Extract<FwpAction, { type: "read_source_file" }>): Promise<string> {
+  if (!action.path?.trim()) return "Nenhum caminho especificado para leitura.";
+  try {
+    const content = await readSourceFile(action.path.trim());
+    const preview = content.length > 6000 ? content.slice(0, 6000) + "\n...[truncado]" : content;
+    const summary = `[LEITURA DE ARQUIVO: ${action.path}]\n${preview}`;
+    await recordMessageEvent("system", message, summary, { action: "read_source_file", path: action.path });
+    return `Arquivo \`${action.path}\` lido (${content.length} chars). Conteúdo registrado na memória operacional — disponível na próxima interação.`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Erro ao ler \`${action.path}\`: ${msg}`;
+  }
+}
+
+async function executeWriteSourceFile(message: Message, action: Extract<FwpAction, { type: "write_source_file" }>): Promise<string> {
+  if (message.author.id !== BOT_OWNER_ID) return "Modificação de código negada: apenas o dono pode alterar o código fonte.";
+  if (!action.path?.trim()) return "Nenhum caminho especificado para escrita.";
+  if (action.content === undefined || action.content === null) return "Conteúdo do arquivo não especificado.";
+  try {
+    await writeSourceFile(action.path.trim(), action.content);
+    await recordMessageEvent("system", message, `Arquivo modificado via FWP: ${action.path} (${action.content.length} chars)`, { action: "write_source_file", path: action.path });
+    return `Arquivo \`${action.path}\` escrito com sucesso (${action.content.length} chars). **Reinicie o bot para aplicar as mudanças.**`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Erro ao escrever \`${action.path}\`: ${msg}`;
+  }
+}
+
+async function executeListSourceFiles(message: Message, action: Extract<FwpAction, { type: "list_source_files" }>): Promise<string> {
+  try {
+    const dir = action.dir?.trim() || "src";
+    const files = await listSourceFiles(dir);
+    const listing = files.join("\n");
+    await recordMessageEvent("system", message, `[LISTAGEM DE DIRETÓRIO: ${dir}]\n${listing}`, { action: "list_source_files", dir });
+    return `Diretório \`${dir}\` listado (${files.length} entradas). Disponível na memória operacional.`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Erro ao listar: ${msg}`;
+  }
+}
+
 export async function executeFwpActions(message: Message, response: string): Promise<string[]> {
   const actions = extractActions(response);
   const reports: string[] = [];
@@ -320,7 +365,22 @@ export async function executeFwpActions(message: Message, response: string): Pro
         await recordMessageEvent("ai_action", message, action.content, { action: "remember" });
         reports.push("Memória interna registrada.");
       }
-      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember"].includes(action.type)) {
+      if (action.type === "read_source_file") {
+        reports.push(await executeReadSourceFile(message, action));
+        continue;
+      }
+
+      if (action.type === "write_source_file") {
+        reports.push(await executeWriteSourceFile(message, action));
+        continue;
+      }
+
+      if (action.type === "list_source_files") {
+        reports.push(await executeListSourceFiles(message, action));
+        continue;
+      }
+
+      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files"].includes(action.type)) {
         reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
       }
     } catch (error) {

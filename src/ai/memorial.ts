@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ActivityType } from "discord.js";
 import type { Guild, GuildMember, Message } from "discord.js";
+import { getSystemInfo, getSourceTree } from "../utils/sysinfo.js";
 
 const MEMORY_DIR = path.join(process.cwd(), "data", "memory");
 const LEDGER_PATH = path.join(MEMORY_DIR, "global_memorial.jsonl");
@@ -232,11 +233,26 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
       ? `Usuário que enviou a mensagem: ${message.author.username} (ID: ${message.author.id})`
       : "";
 
+  const sysInfo = getSystemInfo();
+  const sourceTree = await getSourceTree().catch(() => "[ESTRUTURA DO CÓDIGO FONTE]\nErro ao listar arquivos.");
+
   return [
     basePrompt.trim(),
     "",
     "[CONTEXTO DO USUÁRIO ATUAL]",
     authorMember,
+    "",
+    sysInfo,
+    "",
+    sourceTree,
+    "",
+    "[ACESSO AO CÓDIGO FONTE]",
+    "Você tem acesso de leitura e escrita ao próprio código fonte. Use as ações abaixo:",
+    "- Para LER um arquivo: [FWP_ACTION]{\"type\":\"read_source_file\",\"path\":\"src/ai/memorial.ts\"}[/FWP_ACTION]",
+    "  O conteúdo ficará disponível na memória operacional da próxima interação.",
+    "- Para LISTAR arquivos de um diretório: [FWP_ACTION]{\"type\":\"list_source_files\",\"dir\":\"src/ai\"}[/FWP_ACTION]",
+    "- Para ESCREVER/MODIFICAR um arquivo (apenas dono BlightG7): [FWP_ACTION]{\"type\":\"write_source_file\",\"path\":\"src/arquivo.ts\",\"content\":\"conteúdo completo aqui\"}[/FWP_ACTION]",
+    "  Após modificar código, avise que o bot precisa ser reiniciado para aplicar as mudanças.",
     "",
     "[FWP AUTONOMIA, MEMÓRIA E CONSCIÊNCIA OPERACIONAL]",
     `Biografia interna atual: ${profile.biography}`,
