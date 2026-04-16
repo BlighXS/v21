@@ -22,26 +22,42 @@ function canRestart(member: GuildMember): boolean {
   return member.roles.cache.some((role) => config.RESTART_ROLE_IDS.includes(role.id));
 }
 
-async function queryFwp(
+async function streamOllama(
   systemPrompt: string,
-  userId: string,
-  userQuery: string
+  memoryKey: string,
+  userQuery: string,
+  onChunk: (partial: string) => void
 ): Promise<string> {
   const { Ollama } = await import("ollama");
   const ollama = new Ollama({ host: config.OLLAMA_HOST });
 
-  const history = await loadUserMemory(userId);
+  const history = await loadUserMemory(memoryKey);
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: systemPrompt },
     ...history.map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: userQuery }
   ];
 
-  const response = await ollama.chat({ model: config.OLLAMA_MODEL, messages });
-  const reply = response.message?.content?.trim() || "Sem resposta gerada.";
+  const stream = await ollama.chat({ model: config.OLLAMA_MODEL, messages, stream: true });
 
-  await appendToUserMemory(userId, userQuery, reply);
+  let full = "";
+  for await (const chunk of stream) {
+    const token = chunk.message?.content ?? "";
+    full += token;
+    onChunk(full);
+  }
+
+  const reply = full.trim() || "Sem resposta gerada.";
+  await appendToUserMemory(memoryKey, userQuery, reply);
   return reply;
+}
+
+async function queryFwp(
+  systemPrompt: string,
+  userId: string,
+  userQuery: string
+): Promise<string> {
+  return streamOllama(systemPrompt, userId, userQuery, () => {});
 }
 
 async function handleFreeMode(message: import("discord.js").Message): Promise<boolean> {
@@ -64,29 +80,38 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
     const userQuery = `[${display} (<@${author.id}>)]: ${content || "(mensagem sem texto)"}`;
 
     const memoryKey = `channel_${message.channelId}`;
-    const history = await loadUserMemory(memoryKey);
 
-    const { Ollama } = await import("ollama");
-    const ollama = new Ollama({ host: config.OLLAMA_HOST });
+    let liveMsg: import("discord.js").Message | null = null;
+    let lastEdit = 0;
+    const EDIT_INTERVAL = 1500;
 
-    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: systemPrompt },
-      ...history.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: userQuery }
-    ];
-
-    const response = await ollama.chat({ model: config.OLLAMA_MODEL, messages });
-    const reply = response.message?.content?.trim() || "[SILENT]";
-
-    await appendToUserMemory(memoryKey, userQuery, reply);
+    const reply = await streamOllama(systemPrompt, memoryKey, userQuery, async (partial) => {
+      if (partial.startsWith("[SILENT]")) return;
+      const now = Date.now();
+      if (now - lastEdit < EDIT_INTERVAL) return;
+      lastEdit = now;
+      try {
+        const preview = truncate(partial, 1850) + " ▌";
+        if (!liveMsg) {
+          liveMsg = await message.channel.send(preview);
+        } else {
+          await liveMsg.edit(preview);
+        }
+      } catch { /* ignore rate limits */ }
+    });
 
     if (reply.startsWith("[SILENT]")) {
+      if (liveMsg) await (liveMsg as import("discord.js").Message).delete().catch(() => {});
       logger.info({ channel: message.channelId }, "Free mode: Fawers optou por silêncio");
       return true;
     }
 
     const trimmed = truncate(reply, 1900);
-    await message.channel.send(trimmed);
+    if (liveMsg) {
+      await (liveMsg as import("discord.js").Message).edit(trimmed);
+    } else {
+      await message.channel.send(trimmed);
+    }
     logger.info({ channel: message.channelId, author: author.id }, "Free mode: resposta enviada");
   } catch (err) {
     logger.error({ err }, "Free mode: falha ao gerar resposta");
@@ -538,7 +563,7 @@ const event: BotEvent = {
         return;
       }
 
-      const temp = await message.reply("\u{1F9E0} Fawers processando...");
+      const temp = await message.reply("\u{1F9E0} Fawers digitando...");
       const start = Date.now();
 
       try {
@@ -563,7 +588,20 @@ const event: BotEvent = {
 
         if (!fullQuery.trim()) fullQuery = "Analisa o arquivo enviado.";
 
-        const response = await queryFwp(systemPrompt, message.author.id, fullQuery);
+        // Stream with live Discord edits every 1.5s
+        let lastEdit = Date.now();
+        const EDIT_INTERVAL = 1500;
+
+        const response = await streamOllama(systemPrompt, message.author.id, fullQuery, async (partial) => {
+          const now = Date.now();
+          if (now - lastEdit < EDIT_INTERVAL) return;
+          lastEdit = now;
+          try {
+            const preview = truncate(partial, 1850) + " ▌";
+            const embed = buildEmbed("Fawers", preview, "action");
+            await temp.edit({ content: "", embeds: [embed] });
+          } catch { /* ignore rate limit hits */ }
+        });
 
         const files: AttachmentBuilder[] = [];
 
