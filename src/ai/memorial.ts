@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Guild, Message } from "discord.js";
+import { ActivityType } from "discord.js";
+import type { Guild, GuildMember, Message } from "discord.js";
 
 const MEMORY_DIR = path.join(process.cwd(), "data", "memory");
 const LEDGER_PATH = path.join(MEMORY_DIR, "global_memorial.jsonl");
@@ -175,6 +176,48 @@ export function buildGuildSnapshot(guild?: Guild | null): string {
   ].join("\n");
 }
 
+function activityTypeName(type: ActivityType): string {
+  switch (type) {
+    case ActivityType.Playing: return "jogando";
+    case ActivityType.Streaming: return "streamando";
+    case ActivityType.Listening: return "ouvindo";
+    case ActivityType.Watching: return "assistindo";
+    case ActivityType.Competing: return "competindo em";
+    case ActivityType.Custom: return "status customizado";
+    default: return "atividade";
+  }
+}
+
+export function buildMemberProfile(member: GuildMember, label = "Usuário"): string {
+  const nick = member.nickname ? ` (apelido: ${member.nickname})` : "";
+  const roles = member.roles.cache
+    .filter((r) => r.name !== "@everyone")
+    .sort((a, b) => b.position - a.position)
+    .map((r) => r.name)
+    .slice(0, 10)
+    .join(", ") || "nenhum";
+
+  const presence = member.presence;
+  const status = presence?.status ?? "offline";
+
+  const activities = (presence?.activities ?? [])
+    .map((a) => {
+      const parts = [`${activityTypeName(a.type)} ${a.name}`];
+      if (a.details) parts.push(`(${a.details}`);
+      if (a.state) parts.push(`— ${a.state})`);
+      else if (a.details) parts.push(")");
+      return parts.join(" ");
+    })
+    .join("; ") || "nenhuma atividade detectada";
+
+  return [
+    `${label}: ${member.user.username}${nick} (ID: ${member.id})`,
+    `  Status: ${status}`,
+    `  Cargos: ${roles}`,
+    `  Atividade atual: ${activities}`
+  ].join("\n");
+}
+
 export async function buildAutonomousSystemPrompt(basePrompt: string, message?: Message): Promise<string> {
   const profile = await loadBotProfile();
   const recent = await loadRecentMemorial();
@@ -183,15 +226,17 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
     return `- [${event.timestamp}] ${event.type}${who}: ${event.content}`;
   });
 
-  const authorLine = message?.author
-    ? `Usuário atual: ${message.author.username} (ID Discord: ${message.author.id})`
-    : "";
+  const authorMember = message?.guild && message?.member
+    ? buildMemberProfile(message.member as GuildMember, "Usuário que enviou a mensagem")
+    : message?.author
+      ? `Usuário que enviou a mensagem: ${message.author.username} (ID: ${message.author.id})`
+      : "";
 
   return [
     basePrompt.trim(),
     "",
     "[CONTEXTO DO USUÁRIO ATUAL]",
-    authorLine,
+    authorMember,
     "",
     "[FWP AUTONOMIA, MEMÓRIA E CONSCIÊNCIA OPERACIONAL]",
     `Biografia interna atual: ${profile.biography}`,

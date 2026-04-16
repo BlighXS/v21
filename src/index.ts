@@ -17,7 +17,9 @@ const { config } = await import("./utils/config.js");
 
 const intents = [
   GatewayIntentBits.Guilds,
-  GatewayIntentBits.GuildVoiceStates
+  GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildMembers,
+  GatewayIntentBits.GuildPresences
 ];
 
 if (config.ENABLE_PREFIX) {

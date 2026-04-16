@@ -21,7 +21,7 @@ import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.j
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 import { getProvider } from "../ai/providerConfig.js";
 import { queryGemini, GEMINI_MODEL_V3 } from "../ai/gemini.js";
-import { buildAutonomousSystemPrompt, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
+import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks } from "../ai/actions.js";
 
 function canRestart(member: GuildMember): boolean {
@@ -879,10 +879,25 @@ const event: BotEvent = {
       let systemPrompt = "";
       let fullQuery = userText;
 
-      // Injeta os usuários mencionados para a IA poder usar o ID correto em ações como ban/kick
-      if (message.mentions.users.size > 0) {
-        const mentionLines = message.mentions.users.map((u) => `- ${u.username} (ID: ${u.id})`).join("\n");
-        fullQuery += `\n\n[Usuários mencionados nesta mensagem:\n${mentionLines}]`;
+      // Injeta perfis dos usuários mencionados (presença, cargos, atividade)
+      if (message.mentions.users.size > 0 && message.guild) {
+        const profileLines: string[] = [];
+        for (const [, user] of message.mentions.users) {
+          if (user.id === message.client.user?.id) continue;
+          try {
+            const member = await message.guild.members.fetch(user.id).catch(() => null);
+            if (member) {
+              profileLines.push(buildMemberProfile(member, `Mencionado`));
+            } else {
+              profileLines.push(`Mencionado: ${user.username} (ID: ${user.id}) — não encontrado no servidor`);
+            }
+          } catch {
+            profileLines.push(`Mencionado: ${user.username} (ID: ${user.id})`);
+          }
+        }
+        if (profileLines.length > 0) {
+          fullQuery += `\n\n[Perfis dos usuários mencionados:\n${profileLines.join("\n")}]`;
+        }
       }
 
       try {

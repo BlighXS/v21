@@ -8,5 +8,15 @@
     "role": "assistant",
     "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"delete_channel\",\"channel_id\":\"1494253737093496852\",\"reason\":\"Ordem do criador (BlightG7) para apagar o canal midia.\"}[/FWP_ACTION]",
     "timestamp": "2026-04-16T20:04:53.565Z"
+  },
+  {
+    "role": "user",
+    "content": "preciso que voce expulse <@1052646068740956180>\n\n[Usuários mencionados nesta mensagem:\n- proggbed (ID: 1052646068740956180)]",
+    "timestamp": "2026-04-16T20:21:34.306Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"kick_member\",\"member_id\":\"1052646068740956180\",\"reason\":\"Ordem do criador (BlightG7)\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-16T20:21:34.307Z"
   }
 ]

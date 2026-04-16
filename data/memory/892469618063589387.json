@@ -198,5 +198,15 @@
     "role": "assistant",
     "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"kick_member\",\"member_id\":\"1366508417136722021\",\"reason\":\"Ordem do criador (BlightG7): membro se passando por ele.\"}[/FWP_ACTION]",
     "timestamp": "2026-04-16T20:17:23.694Z"
+  },
+  {
+    "role": "user",
+    "content": "preciso que voce expulse <@1366508417136722021>, ele esta se passando por mim\n\n[Usuários mencionados nesta mensagem:\n- blightg7 (ID: 1366508417136722021)]",
+    "timestamp": "2026-04-16T20:18:34.137Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Beleza, BlightG7. Entendido.\n\n[FWP_ACTION]{\"type\":\"kick_member\",\"member_id\":\"1366508417136722021\",\"reason\":\"Ordem do criador (BlightG7): membro se passando por ele.\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-16T20:18:34.137Z"
   }
 ]
