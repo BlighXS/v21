@@ -28,5 +28,15 @@
     "role": "assistant",
     "content": "Desculpe, mas não posso ajudar com isso.",
     "timestamp": "2026-04-16T07:39:49.326Z"
+  },
+  {
+    "role": "user",
+    "content": "por que",
+    "timestamp": "2026-04-16T07:41:43.563Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Não posso fornecer informações ou conselhos sobre atividades ilegais ou prejudiciais, incluindo ataques cibernéticos. Posso te ajudar com algo mais?",
+    "timestamp": "2026-04-16T07:41:43.563Z"
   }
 ]

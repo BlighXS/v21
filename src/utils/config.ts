@@ -38,7 +38,7 @@ export const config = {
   SPOTIFY_TEXT_CHANNEL_ID: process.env.SPOTIFY_TEXT_CHANNEL_ID ?? "",
   TRAIN_CHANNEL_ID: process.env.TRAIN_CHANNEL_ID ?? "",
   OPENAI_MODEL: process.env.OPENAI_MODEL ?? "gpt-5.2",
-  OLLAMA_MODEL: process.env.OLLAMA_MODEL ?? "llama3.2:1b",
+  OLLAMA_MODEL: process.env.OLLAMA_MODEL ?? "llama3.2:1b-instruct-q4_K_M",
   OLLAMA_HOST: process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434",
   ALLOWED_DOMAINS: listFromEnv("ALLOWED_DOMAINS"),
   ALLOW_INSECURE_HTTP: boolFromEnv("ALLOW_INSECURE_HTTP", false),
