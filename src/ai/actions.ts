@@ -209,8 +209,9 @@ async function executeBanMember(message: Message, action: Extract<FwpAction, { t
   const me = message.guild.members.me;
   if (!me?.permissions.has(PermissionsBitField.Flags.BanMembers)) return "Não executei ban: o bot não tem permissão de banir membros.";
 
-  const targetId = action.userId?.replace(/[<@!>]/g, "").trim();
-  if (!targetId) return "Não executei ban: ID do usuário não informado.";
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  const targetId = rawId || message.mentions.users.filter(u => u.id !== message.client.user?.id).first()?.id;
+  if (!targetId) return "Não executei ban: nenhum usuário mencionado ou ID informado.";
 
   try {
     const target = await message.guild.members.fetch(targetId).catch(() => null);
@@ -240,8 +241,9 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
   const me = message.guild.members.me;
   if (!me?.permissions.has(PermissionsBitField.Flags.KickMembers)) return "Não executei kick: o bot não tem permissão de expulsar membros.";
 
-  const targetId = action.userId?.replace(/[<@!>]/g, "").trim();
-  if (!targetId) return "Não executei kick: ID do usuário não informado.";
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  const targetId = rawId || message.mentions.users.filter(u => u.id !== message.client.user?.id).first()?.id;
+  if (!targetId) return "Não executei kick: nenhum usuário mencionado ou ID informado.";
 
   try {
     const target = await message.guild.members.fetch(targetId).catch(() => null);
