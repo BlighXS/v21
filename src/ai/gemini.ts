@@ -75,7 +75,7 @@ export async function queryGemini(
 
       if (slot === "replit-integration") {
         const [, apiKey, baseUrl] = key.split("::");
-        ai = new GoogleGenAI({ apiKey, httpOptions: { baseUrl } });
+        ai = new GoogleGenAI({ apiKey, httpOptions: { baseUrl, apiVersion: "" } });
       } else {
         ai = new GoogleGenAI({ apiKey: key });
       }
