@@ -123,6 +123,18 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       const reply = stripFwpActionBlocks(raw).replace(/^\[SILENT\]/, "").trim();
       if (reply) await ch.send(truncate(reply, 1900));
       logger.info({ authorId: data.author.id }, "DM respondida");
+
+      // Execute FWP actions if any (fetch real Message object for the action executor)
+      const { executeFwpActions } = await import("./ai/actions.js");
+      try {
+        const fullMsg = await ch.messages.fetch(data.id);
+        const actionReports = await executeFwpActions(fullMsg, raw);
+        for (const report of actionReports) {
+          await ch.send(`> ${report}`).catch(() => {});
+        }
+      } catch (actionErr) {
+        logger.warn({ actionErr }, "Não foi possível executar ações FWP na DM");
+      }
     } finally {
       clearInterval(typingInterval);
     }

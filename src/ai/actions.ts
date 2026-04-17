@@ -20,7 +20,8 @@ type FwpAction =
   | { type: "list_source_files"; dir?: string }
   | { type: "generate_image"; prompt?: string; imageUrl?: string }
   | { type: "mute_member"; userId?: string; durationMinutes?: number; reason?: string }
-  | { type: "send_message"; channelId?: string; channel?: string; content?: string };
+  | { type: "send_message"; channelId?: string; channel?: string; content?: string }
+  | { type: "restart_self"; reason?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text.replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "").trim();
@@ -342,6 +343,14 @@ async function executeMuteMember(message: Message, action: Extract<FwpAction, { 
   }
 }
 
+async function executeRestartSelf(message: Message, action: Extract<FwpAction, { type: "restart_self" }>): Promise<string> {
+  if (message.author.id !== BOT_OWNER_ID) return "Reinicialização negada: apenas o dono pode reiniciar o bot.";
+  await recordMessageEvent("system", message, `Reinicialização via FWP solicitada. Motivo: ${action.reason || "não especificado"}`, { action: "restart_self" });
+  // Give time for the message to be sent before exiting
+  setTimeout(() => process.exit(0), 2000);
+  return `Reiniciando agora... Motivo: ${action.reason || "não especificado"}.`;
+}
+
 async function executeSendMessage(message: Message, action: Extract<FwpAction, { type: "send_message" }>): Promise<string> {
   if (!message.guild) return "Não enviei mensagem: fora de servidor.";
   if (!canModerate(message)) return "Não enviei mensagem: sem permissão. Só o dono ou admins podem usar isso.";
@@ -472,7 +481,12 @@ export async function executeFwpActions(message: Message, response: string): Pro
         continue;
       }
 
-      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files", "generate_image", "mute_member", "send_message"].includes(action.type)) {
+      if (action.type === "restart_self") {
+        reports.push(await executeRestartSelf(message, action));
+        continue;
+      }
+
+      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files", "generate_image", "mute_member", "send_message", "restart_self"].includes(action.type)) {
         reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
       }
     } catch (error) {
