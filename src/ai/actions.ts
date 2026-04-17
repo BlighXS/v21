@@ -18,7 +18,9 @@ type FwpAction =
   | { type: "read_source_file"; path?: string }
   | { type: "write_source_file"; path?: string; content?: string }
   | { type: "list_source_files"; dir?: string }
-  | { type: "generate_image"; prompt?: string };
+  | { type: "generate_image"; prompt?: string }
+  | { type: "mute_member"; userId?: string; durationMinutes?: number; reason?: string }
+  | { type: "send_message"; channelId?: string; channel?: string; content?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text.replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "").trim();
@@ -312,6 +314,63 @@ async function executeListSourceFiles(message: Message, action: Extract<FwpActio
   }
 }
 
+async function executeMuteMember(message: Message, action: Extract<FwpAction, { type: "mute_member" }>): Promise<string> {
+  if (!message.guild) return "Não executei mute: mensagem fora de servidor.";
+  if (!canModerate(message)) return "Não executei mute: sem permissão. Só o dono ou admins podem pedir isso.";
+
+  const me = message.guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return "Não executei mute: o bot não tem permissão de silenciar membros.";
+
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  const targetId = rawId || message.mentions.users.filter(u => u.id !== message.client.user?.id).first()?.id;
+  if (!targetId) return "Não executei mute: nenhum usuário mencionado ou ID informado.";
+
+  const durationMs = Math.min(Math.max((action.durationMinutes ?? 10) * 60 * 1000, 60000), 40320 * 60 * 1000);
+
+  try {
+    const target = await message.guild.members.fetch(targetId).catch(() => null);
+    if (!target) return `Não executei mute: usuário \`${targetId}\` não encontrado.`;
+
+    await target.timeout(durationMs, action.reason || `Silenciado via FWP por ${message.author.tag}`);
+
+    const mins = Math.round(durationMs / 60000);
+    await recordMessageEvent("ai_action", message, `Mute executado via FWP: ${target.user.tag} (${targetId}) por ${mins} min`, { action: "mute_member", targetId, durationMs });
+    return `**${target.user.tag}** foi silenciado por ${mins} minuto(s). Motivo: ${action.reason || "não especificado"}.`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Não consegui silenciar: ${msg}`;
+  }
+}
+
+async function executeSendMessage(message: Message, action: Extract<FwpAction, { type: "send_message" }>): Promise<string> {
+  if (!message.guild) return "Não enviei mensagem: fora de servidor.";
+  if (!canModerate(message)) return "Não enviei mensagem: sem permissão. Só o dono ou admins podem usar isso.";
+
+  const content = action.content?.trim();
+  if (!content) return "Não enviei mensagem: conteúdo vazio.";
+
+  let targetChannel: import("discord.js").GuildBasedChannel | null | undefined = null;
+
+  if (action.channelId) {
+    targetChannel = message.guild.channels.cache.get(action.channelId) ?? null;
+  } else if (action.channel) {
+    const wanted = comparableName(action.channel);
+    targetChannel = message.guild.channels.cache.find(c => comparableName(c.name) === wanted) ?? null;
+  }
+
+  if (!targetChannel) return `Canal não encontrado: \`${action.channelId || action.channel || "não especificado"}\`.`;
+  if (!targetChannel.isTextBased()) return `Canal \`${targetChannel.name}\` não é um canal de texto.`;
+
+  try {
+    await targetChannel.send(content);
+    await recordMessageEvent("ai_action", message, `Mensagem enviada via FWP para #${targetChannel.name}: ${content.slice(0, 200)}`, { action: "send_message", channelId: targetChannel.id });
+    return `Mensagem enviada em <#${targetChannel.id}>.`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Não consegui enviar mensagem: ${msg}`;
+  }
+}
+
 async function executeGenerateImage(message: Message, action: Extract<FwpAction, { type: "generate_image" }>): Promise<string> {
   const prompt = action.prompt?.trim();
   if (!prompt) return "Imagem não gerada: prompt vazio.";
@@ -403,7 +462,17 @@ export async function executeFwpActions(message: Message, response: string): Pro
         continue;
       }
 
-      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files", "generate_image"].includes(action.type)) {
+      if (action.type === "mute_member") {
+        reports.push(await executeMuteMember(message, action));
+        continue;
+      }
+
+      if (action.type === "send_message") {
+        reports.push(await executeSendMessage(message, action));
+        continue;
+      }
+
+      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files", "generate_image", "mute_member", "send_message"].includes(action.type)) {
         reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
       }
     } catch (error) {
