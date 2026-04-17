@@ -9,11 +9,70 @@ import { sendToLogChannel } from "../utils/logChannel.js";
 import { setProvider, type AIProvider } from "../ai/providerConfig.js";
 import { isFreeModeOwner } from "../ai/freeMode.js";
 import { buildEmbed } from "../utils/format.js";
+import { getPendingWrite, deletePendingWrite, isExpired } from "../ai/pendingWrites.js";
+import { writeSourceFile } from "../utils/sysinfo.js";
+import { recordMemorialEvent } from "../ai/memorial.js";
 
 const event: BotEvent = {
   name: "interactionCreate",
   async execute(interaction) {
     if (interaction.isButton()) {
+      if (interaction.customId.startsWith("fwp_write_confirm_") || interaction.customId.startsWith("fwp_write_cancel_")) {
+        const isConfirm = interaction.customId.startsWith("fwp_write_confirm_");
+        const pwId = interaction.customId.replace("fwp_write_confirm_", "").replace("fwp_write_cancel_", "");
+        const pw = getPendingWrite(pwId);
+
+        if (!pw) {
+          await interaction.reply({ content: "Esta confirmação já expirou ou foi processada.", ephemeral: true });
+          return;
+        }
+
+        if (interaction.user.id !== pw.requestedBy) {
+          await interaction.reply({ content: "Só quem solicitou essa alteração pode confirmar.", ephemeral: true });
+          return;
+        }
+
+        if (isExpired(pw)) {
+          deletePendingWrite(pwId);
+          await interaction.update({ content: `⏰ Confirmação de \`${pw.path}\` expirou. Peça pra Fawers gerar de novo.`, components: [] });
+          return;
+        }
+
+        deletePendingWrite(pwId);
+
+        if (!isConfirm) {
+          await interaction.update({ content: `❌ Escrita de \`${pw.path}\` **cancelada**.`, components: [] });
+          await recordMemorialEvent({ type: "system", content: `Escrita cancelada pelo dono: ${pw.path}` });
+          logger.info({ path: pw.path, userId: interaction.user.id }, "Escrita cancelada pelo usuário");
+          return;
+        }
+
+        try {
+          await writeSourceFile(pw.path, pw.newContent);
+          await recordMemorialEvent({
+            type: "system",
+            content: `Arquivo escrito e confirmado pelo dono: ${pw.path} (+${pw.addedLines}/-${pw.removedLines} linhas)`,
+            userId: interaction.user.id,
+            username: interaction.user.tag
+          });
+          logger.info({ path: pw.path, addedLines: pw.addedLines, removedLines: pw.removedLines }, "Escrita confirmada e aplicada");
+
+          const confirmText = [
+            `✅ \`${pw.path}\` escrito com sucesso.`,
+            `**+${pw.addedLines}** adicionadas | **-${pw.removedLines}** removidas`,
+            "",
+            "⚠️ **Reinicie o bot** para as mudanças entrarem em efeito."
+          ].join("\n");
+
+          await interaction.update({ content: confirmText, components: [] });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await interaction.update({ content: `❌ Erro ao escrever \`${pw.path}\`: ${msg}`, components: [] });
+          logger.error({ err, path: pw.path }, "Erro ao aplicar escrita confirmada");
+        }
+        return;
+      }
+
       if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2" || interaction.customId === "fwp_model_v3" || interaction.customId === "fwp_model_v4") {
         if (!isFreeModeOwner(interaction.user.id)) {
           await interaction.reply({ content: "Sem permissão.", ephemeral: true });

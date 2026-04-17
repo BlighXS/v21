@@ -1,8 +1,9 @@
-import { ActivityType, AttachmentBuilder, ChannelType, PermissionsBitField } from "discord.js";
+import { ActivityType, AttachmentBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import type { Guild, Message } from "discord.js";
 import { addBotPreference, recordMessageEvent, updateBotBiography } from "./memorial.js";
 import { readSourceFile, writeSourceFile, listSourceFiles } from "../utils/sysinfo.js";
 import { generateImage } from "./imageGen.js";
+import { createPendingWrite } from "./pendingWrites.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -307,14 +308,62 @@ async function executeWriteSourceFile(message: Message, action: Extract<FwpActio
   if (message.author.id !== BOT_OWNER_ID) return "Modificação de código negada: apenas o dono pode alterar o código fonte.";
   if (!action.path?.trim()) return "Nenhum caminho especificado para escrita.";
   if (action.content === undefined || action.content === null) return "Conteúdo do arquivo não especificado.";
+
+  const filePath = action.path.trim();
+
+  let originalContent = "";
   try {
-    await writeSourceFile(action.path.trim(), action.content);
-    await recordMessageEvent("system", message, `Arquivo modificado via FWP: ${action.path} (${action.content.length} chars)`, { action: "write_source_file", path: action.path });
-    return `Arquivo \`${action.path}\` escrito com sucesso (${action.content.length} chars). **Reinicie o bot para aplicar as mudanças.**`;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return `Erro ao escrever \`${action.path}\`: ${msg}`;
+    originalContent = await readSourceFile(filePath);
+  } catch {
+    originalContent = "";
   }
+
+  const isDM = !message.guild;
+  const pw = createPendingWrite(
+    filePath,
+    action.content,
+    originalContent,
+    message.author.id,
+    message.channelId,
+    message.guild?.id,
+    isDM
+  );
+
+  const diffPreview = pw.diff.length > 1500 ? pw.diff.slice(0, 1500) + "\n...[diff truncado]" : pw.diff;
+  const statsLine = `**+${pw.addedLines}** linhas adicionadas | **-${pw.removedLines}** linhas removidas`;
+  const diffBlock = `\`\`\`diff\n${diffPreview}\n\`\`\``;
+  const embedContent = [
+    `📝 **Arquivo:** \`${filePath}\``,
+    statsLine,
+    "",
+    diffBlock,
+    "",
+    `⏳ Esta confirmação expira em **10 minutos**.`
+  ].join("\n");
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`fwp_write_confirm_${pw.id}`)
+      .setLabel("✅ Confirmar escrita")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`fwp_write_cancel_${pw.id}`)
+      .setLabel("❌ Cancelar")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  try {
+    await message.channel.send({
+      content: `<@${message.author.id}> A Fawers quer escrever o arquivo abaixo. Confira o diff e confirme:\n\n${embedContent}`,
+      components: [row]
+    });
+  } catch (sendErr) {
+    const msg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+    return `Não consegui enviar o diff para confirmação: ${msg}`;
+  }
+
+  await recordMessageEvent("system", message, `Escrita pendente criada para ${filePath} (id: ${pw.id})`, { action: "write_source_file", path: filePath, pendingId: pw.id });
+  return `Diff de \`${filePath}\` enviado. Aguardando sua confirmação no canal.`;
 }
 
 async function executeListSourceFiles(message: Message, action: Extract<FwpAction, { type: "list_source_files" }>): Promise<string> {
@@ -416,6 +465,8 @@ export async function executeFwpActions(message: Message, response: string): Pro
   const reports: string[] = [];
   const fileReads: FwpFileRead[] = [];
 
+  const hasWriteActions = actions.some(a => a.type === "write_source_file");
+
   for (const action of actions) {
     try {
       if (action.type === "create_channel") {
@@ -500,6 +551,10 @@ export async function executeFwpActions(message: Message, response: string): Pro
       }
 
       if (action.type === "restart_self") {
+        if (hasWriteActions) {
+          reports.push("Reinicialização adiada — aguardando confirmação da escrita. Confirme o diff acima, então diga para eu reiniciar.");
+          continue;
+        }
         reports.push(await executeRestartSelf(message, action));
         continue;
       }
