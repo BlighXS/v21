@@ -92,10 +92,10 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
         return;
       }
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Modelo Beta").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER_V2.01").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER Flash V3.0").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 (ChatGPT)").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Motor Beta").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2 — Flash").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3 — Flash+").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger)
       );
       await ch.send({ embeds: [buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info")], components: [row] });
       return;
