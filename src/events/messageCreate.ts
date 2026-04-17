@@ -398,14 +398,7 @@ const event: BotEvent = {
   name: "messageCreate",
   async execute(message) {
     if (!config.ENABLE_PREFIX) return;
-
-    // For DMs: partial messages arrive without author — handle them first
-    if (!message.guild) {
-      const dmHandled = await handleDM(message);
-      if (dmHandled) return;
-      return;
-    }
-
+    if (!message.guild) return; // DMs handled via raw gateway in index.ts
     if (message.author?.bot) return;
     startPendingFwpWorker(message.client);
 

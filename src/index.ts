@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { Client, Collection, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
+import { Client, Collection, GatewayIntentBits, Partials, REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { loadCommands } from "./utils/loadCommands.js";
 import { loadEvents } from "./utils/loadEvents.js";
 import { logger } from "./utils/logger.js";
@@ -47,6 +47,92 @@ if (config.DISCORD_CLIENT_ID) {
 
 client.on("error", (err) => {
   logger.error({ err }, "Discord client error");
+});
+
+// DM handler via raw gateway (messageCreate partial processing unreliable for DMs)
+const dmProcessing = new Set<string>();
+client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
+  if (data?.guild_id) return;
+  if (!data?.author || data.author.bot) return;
+  const rawContent = data.content?.trim();
+  if (!rawContent) return;
+
+  const msgId = data.id;
+  if (dmProcessing.has(msgId)) return;
+  dmProcessing.add(msgId);
+  setTimeout(() => dmProcessing.delete(msgId), 30_000);
+
+  logger.info({ authorId: data.author.id, content: rawContent.slice(0, 60) }, "DM recebida");
+
+  try {
+    const { loadTrainingData } = await import("./training/store.js");
+    const { queryGemini, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
+    const { queryOpenAI } = await import("./ai/openai.js");
+    const { getProvider } = await import("./ai/providerConfig.js");
+    const { clearUserMemory } = await import("./ai/memory.js");
+    const { buildEmbed, truncate } = await import("./utils/format.js");
+    const { isFreeModeOwner } = await import("./ai/freeMode.js");
+    const { stripFwpActionBlocks } = await import("./ai/actions.js");
+    const { config: cfg } = await import("./utils/config.js");
+
+    const channel = await client.channels.fetch(data.channel_id);
+    if (!channel || !("send" in channel)) return;
+    const ch = channel as import("discord.js").DMChannel;
+
+    const prefix = cfg.PREFIX;
+
+    // Handle ;setup fwp command
+    if (rawContent === `${prefix}setup fwp` || rawContent.startsWith(`${prefix}setup fwp`)) {
+      if (!isFreeModeOwner(data.author.id)) {
+        await ch.send({ embeds: [buildEmbed("Acesso negado", "Sem permissão para acessar o setup.", "warn")] });
+        return;
+      }
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Modelo Beta").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER_V2.01").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER Flash V3.0").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 (ChatGPT)").setStyle(ButtonStyle.Danger)
+      );
+      await ch.send({ embeds: [buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info")], components: [row] });
+      return;
+    }
+
+    // Handle ;fwp limpar
+    if (rawContent === `${prefix}fwp limpar`) {
+      await clearUserMemory(`dm_${data.author.id}`);
+      await ch.send({ embeds: [buildEmbed("Memória", "Memória do PV apagada.", "ok")] });
+      return;
+    }
+
+    // AI response
+    const trainingData = await loadTrainingData();
+    const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
+    const memoryKey = `dm_${data.author.id}`;
+
+    ch.sendTyping().catch(() => {});
+    const typingInterval = setInterval(() => ch.sendTyping().catch(() => {}), 8000);
+
+    try {
+      const provider = await getProvider();
+      let raw: string;
+      if (provider === "openai-v4") {
+        raw = await queryOpenAI(systemPrompt, memoryKey, rawContent);
+      } else {
+        raw = await queryGemini(systemPrompt, memoryKey, rawContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+      }
+      const reply = stripFwpActionBlocks(raw).replace(/^\[SILENT\]/, "").trim();
+      if (reply) await ch.send(truncate(reply, 1900));
+      logger.info({ authorId: data.author.id }, "DM respondida");
+    } finally {
+      clearInterval(typingInterval);
+    }
+  } catch (err) {
+    logger.error({ err, authorId: data.author?.id }, "Erro ao responder DM");
+    try {
+      const ch = await client.channels.fetch(data.channel_id) as any;
+      await ch?.send?.("Deu erro aqui, tenta de novo.").catch(() => {});
+    } catch {}
+  }
 });
 
 client.login(config.DISCORD_TOKEN);
