@@ -12,7 +12,7 @@ const FALLBACK_CHAIN = [
   "gemini-2.5-pro",
 ];
 
-const RETRY_DELAY_MS = 1500;
+const RETRY_DELAY_MS = 4000;
 
 function getAiClient(): GoogleGenAI {
   const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
@@ -99,12 +99,15 @@ export async function queryGemini(
         lastError = err;
         if (isRateLimitError(err)) {
           logger.warn({ model, attempt }, "Rate limit no modelo, tentando próximo");
-          if (attempt < 2) await sleep(RETRY_DELAY_MS);
+          // Espera mais a cada tentativa (backoff)
+          await sleep(RETRY_DELAY_MS * attempt);
           break; // move to next model in chain
         }
         throw err; // non-rate-limit error: propagate immediately
       }
     }
+    // Pequena pausa antes de tentar o próximo modelo da cadeia
+    await sleep(RETRY_DELAY_MS);
   }
 
   logger.error({ chain }, "Todos os modelos Gemini falharam");
