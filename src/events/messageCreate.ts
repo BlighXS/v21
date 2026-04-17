@@ -335,6 +335,37 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
   const content = message.content?.trim() ?? "";
   if (!content) return true;
 
+  // Allow ;setup fwp command in DMs
+  const prefix = config.PREFIX;
+  if (content.startsWith(prefix)) {
+    const args = content.slice(prefix.length).trim().split(/\s+/);
+    const cmd = args[0]?.toLowerCase();
+
+    if (cmd === "setup" && args[1]?.toLowerCase() === "fwp") {
+      if (!isFreeModeOwner(message.author.id)) {
+        await message.reply({ embeds: [buildEmbed("Acesso negado", "Sem permissão para acessar o setup.", "warn")] });
+        return true;
+      }
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Modelo Beta").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER_V2.01").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER Flash V3.0").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 (ChatGPT)").setStyle(ButtonStyle.Danger)
+      );
+      const embed = buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info");
+      await message.reply({ embeds: [embed], components: [row] });
+      return true;
+    }
+
+    if (cmd === "fwp" && args[1]?.toLowerCase() === "limpar") {
+      await clearUserMemory(`dm_${message.author.id}`);
+      await message.reply({ embeds: [buildEmbed("Memória", "Memória do PV apagada.", "ok")] });
+      return true;
+    }
+
+    // If prefix but unknown command in DM, just treat the whole thing as AI query
+  }
+
   try {
     const trainingData = await loadTrainingData();
     const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
