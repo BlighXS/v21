@@ -1,5 +1,6 @@
 import { ActivityType } from "discord.js";
 import type { BotEvent } from "../utils/events.js";
+
 import { logger } from "../utils/logger.js";
 import { buildEmbed } from "../utils/format.js";
 import { scheduleDailyBackup } from "../backup/scheduler.js";
@@ -8,8 +9,8 @@ const ACTIVITIES = [
   { name: "Visual Studio 2022 | Compilando sonhos", type: ActivityType.Playing },
   { name: "/ajuda | Fawer Blight", type: ActivityType.Playing },
   { name: "a comunidade crescer", type: ActivityType.Watching },
-  { name: "c\u00f3digo sendo compilado", type: ActivityType.Watching },
-  { name: "Spotify | ;spf <m\u00fasica>", type: ActivityType.Listening },
+  { name: "código sendo compilado", type: ActivityType.Watching },
+  { name: "Spotify | ;spf <música>", type: ActivityType.Listening },
   { name: "Fawer IA | ;fwp <pergunta>", type: ActivityType.Playing }
 ];
 
@@ -35,6 +36,18 @@ const event: BotEvent = {
 
     scheduleDailyBackup(client);
 
+    // Notifica o criador (BlightG7) via DM que o sistema voltou
+    try {
+      const creatorId = "892469618063589387";
+      const creator = await client.users.fetch(creatorId);
+      if (creator) {
+        await creator.send("⚡ **Fawers** está de volta! Sistema reiniciado e pronto para a ação, Blight.");
+        logger.info({ creatorId }, "Notificação de reinício enviada ao criador");
+      }
+    } catch (err) {
+      logger.error({ err }, "Falha ao enviar notificação de reinício ao criador via DM");
+    }
+
     try {
       const guilds = client.guilds.cache.values();
       for (const guild of guilds) {
@@ -48,7 +61,7 @@ const event: BotEvent = {
           const embed = buildEmbed(
             "Bot Online",
             [
-              "\u{1F916} **Fawer\u2019Bot** est\u00e1 operacional!",
+              "🤖 **Fawer’Bot** está operacional!",
               `Servidor: **${guild.name}**`,
               `Membros: **${totalMembers}**`,
               `Use \`/ajuda\` para ver todos os comandos.`
