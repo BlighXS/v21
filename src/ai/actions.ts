@@ -18,7 +18,7 @@ type FwpAction =
   | { type: "read_source_file"; path?: string }
   | { type: "write_source_file"; path?: string; content?: string }
   | { type: "list_source_files"; dir?: string }
-  | { type: "generate_image"; prompt?: string }
+  | { type: "generate_image"; prompt?: string; imageUrl?: string }
   | { type: "mute_member"; userId?: string; durationMinutes?: number; reason?: string }
   | { type: "send_message"; channelId?: string; channel?: string; content?: string };
 
@@ -376,7 +376,7 @@ async function executeGenerateImage(message: Message, action: Extract<FwpAction,
   if (!prompt) return "Imagem não gerada: prompt vazio.";
 
   try {
-    const img = await generateImage(prompt);
+    const img = await generateImage(prompt, action.imageUrl?.trim() || undefined);
     const attachment = new AttachmentBuilder(img.buffer, { name: `imagem.${img.ext}` });
     await message.channel.send({ files: [attachment] });
     await recordMessageEvent("ai_action", message, `Imagem gerada via FWP. Prompt: ${prompt.slice(0, 200)}`, { action: "generate_image", prompt });

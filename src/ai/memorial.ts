@@ -277,7 +277,8 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
     "- Para enviar uma mensagem em um canal específico (apenas dono ou admins): [FWP_ACTION]{\"type\":\"send_message\",\"channelId\":\"ID_DO_CANAL\",\"content\":\"mensagem\"}[/FWP_ACTION] (pode usar \\\"channel\\\":\\\"nome-do-canal\\\" no lugar de channelId)",
     "- Para mudar sua biografia interna, inclua: [FWP_ACTION]{\"type\":\"set_biography\",\"biography\":\"nova bio\"}[/FWP_ACTION]",
     "- Para guardar uma memória importante, inclua: [FWP_ACTION]{\"type\":\"remember\",\"content\":\"memória\"}[/FWP_ACTION]",
-    "- Para gerar e enviar uma imagem no canal (quando o usuário pedir uma imagem, arte, foto, ilustração, etc.): [FWP_ACTION]{\"type\":\"generate_image\",\"prompt\":\"descrição detalhada da imagem em inglês\"}[/FWP_ACTION]",
+    "- Para gerar uma imagem nova: [FWP_ACTION]{\"type\":\"generate_image\",\"prompt\":\"descrição detalhada da imagem em inglês\"}[/FWP_ACTION]",
+    "- Para EDITAR uma imagem que o usuário enviou (slim, change style, color, etc.): use o imageUrl da imagem enviada: [FWP_ACTION]{\"type\":\"generate_image\",\"prompt\":\"descrição da edição em inglês\",\"imageUrl\":\"URL_DA_IMAGEM_ENVIADA\"}[/FWP_ACTION]. SEMPRE use imageUrl quando o usuário enviar uma foto e pedir para editar/modificar ela.",
     "Nunca mostre o bloco FWP_ACTION como texto normal. Se uma ação falhar, a aplicação avisará o usuário.",
     "IMPORTANTE: Para ban/kick, o userId deve ser o ID numérico puro do Discord do alvo (ex: '123456789012345678'). Quando alguém mencionar um usuário com @, extraia o ID do contexto da mensagem."
   ].join("\n");

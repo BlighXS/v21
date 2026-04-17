@@ -909,7 +909,7 @@ const event: BotEvent = {
             const content = await readAttachmentText(att.url);
             fullQuery += `\n\n[Arquivo enviado: ${fname}]\n\`\`\`\n${content.slice(0, 6000)}\n\`\`\``;
           } else if (isImageAttachment(fname)) {
-            fullQuery += `\n\n[Imagem enviada: ${fname} — análise de imagem não suportada neste momento]`;
+            fullQuery += `\n\n[Imagem enviada: ${fname} — URL da imagem: ${att.url} — Se o usuário pedir para editar, gerar versão diferente ou alterar essa imagem, use generate_image com imageUrl="${att.url}" e descreva a edição no prompt em inglês]`;
           } else if (isPEFile(fname)) {
             fullQuery += `\n\n[Binário PE enviado: ${fname} — use \`${prefix}pe\` para análise completa de headers, imports e strings]`;
           } else {
