@@ -368,6 +368,11 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
 const event: BotEvent = {
   name: "messageCreate",
   async execute(message) {
+    // Debug: log every message event to detect DMs
+    if (!message.guild) {
+      logger.info({ partial: message.partial, channelType: message.channel?.type }, "messageCreate: DM recebida (raw)");
+    }
+
     if (!config.ENABLE_PREFIX) return;
 
     // For DMs: partial messages arrive without author — handle them first
