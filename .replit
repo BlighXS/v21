@@ -28,12 +28,12 @@ args = "Ollama LLM"
 name = "Start Discord Bot"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm run dev"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "while true; do pnpm run dev; echo '[auto-restart] Bot encerrado. Reiniciando em 3s...'; sleep 3; done"
 
 [[workflows.workflow]]
 name = "Ollama LLM"
