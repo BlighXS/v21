@@ -69,7 +69,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
 
   try {
     const { loadTrainingData } = await import("./training/store.js");
-    const { queryGemini, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
+    const { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
     const { queryOpenAI } = await import("./ai/openai.js");
     const { getProvider } = await import("./ai/providerConfig.js");
     const { clearUserMemory } = await import("./ai/memory.js");
@@ -124,7 +124,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       if (provider === "openai-v4") {
         raw = await queryOpenAI(systemPrompt, memoryKey, contextualContent);
       } else {
-        raw = await queryGemini(systemPrompt, memoryKey, contextualContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+        raw = await queryGemini(systemPrompt, memoryKey, contextualContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : GEMINI_MODEL_V2);
       }
       const reply = stripFwpActionBlocks(raw).replace(/^\[SILENT\]/, "").trim();
       if (reply) await ch.send(truncate(reply, 1900));
@@ -148,7 +148,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
             if (provider === "openai-v4") {
               followRaw = await queryOpenAI(systemPrompt, memoryKey, followUpQuery);
             } else {
-              followRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+              followRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : GEMINI_MODEL_V2);
             }
             const followPass = await executeFwpActions(fullMsg, followRaw);
             const followReply = stripFwpActionBlocks(followRaw).replace(/^\[SILENT\]/, "").trim();

@@ -20,7 +20,7 @@ import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } 
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 import { getProvider } from "../ai/providerConfig.js";
-import { queryGemini, GEMINI_MODEL_V3 } from "../ai/gemini.js";
+import { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { queryOpenAI } from "../ai/openai.js";
 import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks, buildFileReadFollowUp } from "../ai/actions.js";
@@ -101,7 +101,7 @@ async function queryOllama(
 ): Promise<string> {
   const provider = await getProvider();
   if (provider === "gemini") {
-    return await queryGemini(systemPrompt, memoryKey, userQuery);
+    return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V2);
   }
   if (provider === "gemini-v3") {
     return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);

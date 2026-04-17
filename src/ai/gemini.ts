@@ -3,11 +3,16 @@ import { loadUserMemory, appendToUserMemory } from "./memory.js";
 import { logger } from "../utils/logger.js";
 import { recordMemorialEvent } from "./memorial.js";
 
-const GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
+export const GEMINI_MODEL_V2 = "gemini-2.5-flash";
 export const GEMINI_MODEL_V3 = "gemini-3-flash-preview";
 
-const MAX_RETRIES = 2;
-const BASE_DELAY_MS = 1500;
+const FALLBACK_CHAIN = [
+  "gemini-3-flash-preview",
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+];
+
+const RETRY_DELAY_MS = 1500;
 
 function getAiClient(): GoogleGenAI {
   const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
@@ -34,62 +39,74 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function tryModel(
+  ai: GoogleGenAI,
+  model: string,
+  systemPrompt: string,
+  contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }>
+): Promise<string> {
+  const response = await ai.models.generateContent({
+    model,
+    contents,
+    config: {
+      systemInstruction: systemPrompt,
+      maxOutputTokens: 8192,
+    },
+  });
+  return response.text?.trim() || "Sem resposta gerada.";
+}
+
 export async function queryGemini(
   systemPrompt: string,
   memoryKey: string,
   userQuery: string,
-  model: string = GEMINI_MODEL_DEFAULT
+  preferredModel: string = GEMINI_MODEL_V3
 ): Promise<string> {
   const ai = getAiClient();
-
   const history = await loadUserMemory(memoryKey);
 
   const contents = [
     ...history.map((m) => ({
-      role: m.role === "assistant" ? "model" as const : "user" as const,
-      parts: [{ text: m.content }]
+      role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+      parts: [{ text: m.content }],
     })),
-    { role: "user" as const, parts: [{ text: userQuery }] }
+    { role: "user" as const, parts: [{ text: userQuery }] },
+  ];
+
+  // Build the model chain: start with the preferred model, then fall back
+  const chain = [
+    preferredModel,
+    ...FALLBACK_CHAIN.filter((m) => m !== preferredModel),
   ];
 
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await ai.models.generateContent({
-        model,
-        contents,
-        config: {
-          systemInstruction: systemPrompt,
-          maxOutputTokens: 8192
+  for (const model of chain) {
+    // Try each model up to 2 times with a short delay
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const reply = await tryModel(ai, model, systemPrompt, contents);
+
+        await appendToUserMemory(memoryKey, userQuery, reply);
+        await recordMemorialEvent({
+          type: "ai_response",
+          content: reply,
+          metadata: { provider: "gemini", memoryKey, model },
+        });
+        logger.info({ memoryKey, model }, "Resposta Gemini gerada");
+        return reply;
+      } catch (err) {
+        lastError = err;
+        if (isRateLimitError(err)) {
+          logger.warn({ model, attempt }, "Rate limit no modelo, tentando próximo");
+          if (attempt < 2) await sleep(RETRY_DELAY_MS);
+          break; // move to next model in chain
         }
-      });
-
-      const reply = response.text?.trim() || "Sem resposta gerada.";
-
-      await appendToUserMemory(memoryKey, userQuery, reply);
-      await recordMemorialEvent({
-        type: "ai_response",
-        content: reply,
-        metadata: { provider: "gemini", memoryKey, model, slot: "replit-integration" }
-      });
-      logger.info({ memoryKey, model, slot: "replit-integration" }, "Resposta Gemini gerada");
-      return reply;
-
-    } catch (err) {
-      lastError = err;
-
-      if (isRateLimitError(err)) {
-        const delay = BASE_DELAY_MS * attempt;
-        logger.warn({ attempt, delay, err: String(err) }, "Rate limit atingido, aguardando para tentar novamente");
-        await sleep(delay);
-        continue;
+        throw err; // non-rate-limit error: propagate immediately
       }
-
-      throw err;
     }
   }
 
-  logger.error({ attempts: MAX_RETRIES }, "Gemini falhou após todas as tentativas");
-  throw new Error(`Gemini falhou após ${MAX_RETRIES} tentativas. Último erro: ${String(lastError)}`);
+  logger.error({ chain }, "Todos os modelos Gemini falharam");
+  throw new Error(`Todos os modelos Gemini falharam. Último erro: ${String(lastError)}`);
 }
