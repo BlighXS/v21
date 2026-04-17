@@ -253,6 +253,8 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
     "  [FWP_ACTION]{\"type\":\"read_source_file\",\"path\":\"src/handlers/messageHandler.ts\"}[/FWP_ACTION]",
     "  O sistema lerá o arquivo e injetará o conteúdo completo de volta para você AUTOMATICAMENTE na mesma conversa.",
     "  Você NÃO precisa esperar a próxima mensagem do usuário — o conteúdo será entregue para você imediatamente.",
+    "  IMPORTANTE: Ao ler um arquivo, NUNCA use fromLine/toLine sem necessidade — omita esses campos para ler o arquivo COMPLETO do início ao fim.",
+    "  Você pode solicitar até 10 leituras de arquivo de uma vez e o sistema fará múltiplas rodadas de follow-up até todos os arquivos serem lidos.",
     "",
     "PASSO 2 — ESCREVER o arquivo com o conteúdo modificado (apenas BlightG7 pode fazer isso):",
     "  [FWP_ACTION]{\"type\":\"write_source_file\",\"path\":\"src/arquivo.ts\",\"content\":\"CONTEÚDO COMPLETO DO ARQUIVO AQUI\"}[/FWP_ACTION]",

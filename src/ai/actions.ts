@@ -51,7 +51,7 @@ function extractActions(text: string): FwpAction[] {
       actions.push({ type: "remember", content: `A Fawers tentou emitir uma ação inválida: ${match[1].trim().slice(0, 500)}` });
     }
   }
-  return actions.slice(0, 5);
+  return actions.slice(0, 10);
 }
 
 function getTargetGuild(message: Message) {

@@ -307,17 +307,21 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
     let allReports = [...firstPass.reports];
     let finalRawReply = rawReply;
 
-    if (firstPass.fileReads.length > 0) {
+    let pendingReads = firstPass.fileReads;
+    const MAX_FOLLOW_UP_PASSES = 4;
+    for (let pass = 0; pass < MAX_FOLLOW_UP_PASSES && pendingReads.length > 0; pass++) {
       try {
-        const followUpQuery = buildFileReadFollowUp(firstPass.fileReads);
-        const secondRaw = await queryOllama(systemPrompt, memoryKey, followUpQuery);
-        const secondPass = await executeFwpActions(message, secondRaw);
-        allReports = [...allReports, ...secondPass.reports];
-        if (!stripFwpActionBlocks(secondRaw).startsWith("[SILENT]")) {
-          finalRawReply = secondRaw;
+        const followUpQuery = buildFileReadFollowUp(pendingReads);
+        const followRaw = await queryOllama(systemPrompt, memoryKey, followUpQuery);
+        const followPass = await executeFwpActions(message, followRaw);
+        allReports = [...allReports, ...followPass.reports];
+        if (!stripFwpActionBlocks(followRaw).startsWith("[SILENT]")) {
+          finalRawReply = followRaw;
         }
+        pendingReads = followPass.fileReads;
       } catch (err) {
-        logger.warn({ err }, "Free mode: segunda passada de leitura falhou");
+        logger.warn({ err, pass }, "Free mode: passada de leitura falhou");
+        break;
       }
     }
 

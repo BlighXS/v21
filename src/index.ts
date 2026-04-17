@@ -139,23 +139,27 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
           await ch.send(`> ${report}`).catch(() => {});
         }
 
-        if (firstPass.fileReads.length > 0) {
+        let pendingReads = firstPass.fileReads;
+        const MAX_FOLLOW_UP_PASSES = 4;
+        for (let pass = 0; pass < MAX_FOLLOW_UP_PASSES && pendingReads.length > 0; pass++) {
           try {
-            const followUpQuery = buildFileReadFollowUp(firstPass.fileReads);
-            let secondRaw: string;
+            const followUpQuery = buildFileReadFollowUp(pendingReads);
+            let followRaw: string;
             if (provider === "openai-v4") {
-              secondRaw = await queryOpenAI(systemPrompt, memoryKey, followUpQuery);
+              followRaw = await queryOpenAI(systemPrompt, memoryKey, followUpQuery);
             } else {
-              secondRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+              followRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
             }
-            const secondPass = await executeFwpActions(fullMsg, secondRaw);
-            const secondReply = stripFwpActionBlocks(secondRaw).replace(/^\[SILENT\]/, "").trim();
-            if (secondReply) await ch.send(truncate(secondReply, 1900)).catch(() => {});
-            for (const report of secondPass.reports) {
+            const followPass = await executeFwpActions(fullMsg, followRaw);
+            const followReply = stripFwpActionBlocks(followRaw).replace(/^\[SILENT\]/, "").trim();
+            if (followReply) await ch.send(truncate(followReply, 1900)).catch(() => {});
+            for (const report of followPass.reports) {
               await ch.send(`> ${report}`).catch(() => {});
             }
+            pendingReads = followPass.fileReads;
           } catch (followErr) {
-            logger.warn({ followErr }, "DM: segunda passada de leitura falhou");
+            logger.warn({ followErr, pass }, "DM: passada de leitura falhou");
+            break;
           }
         }
       } catch (actionErr) {
