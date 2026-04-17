@@ -6,35 +6,32 @@ import { recordMemorialEvent } from "./memorial.js";
 const GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
 export const GEMINI_MODEL_V3 = "gemini-3-flash-preview";
 
-function collectKeys(): Array<{ key: string; slot: string }> {
-  const entries: Array<{ key: string; slot: string }> = [];
+const MAX_RETRIES = 5;
+const BASE_DELAY_MS = 3000;
 
-  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
-  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim();
-  if (replitKey && replitBase) {
-    entries.push({ key: `replit::${replitKey}::${replitBase}`, slot: "replit-integration" });
+function getAiClient(): GoogleGenAI {
+  const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
+  const baseUrl = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim();
+
+  if (!apiKey || !baseUrl) {
+    throw new Error("Motor não configurado: integração Replit Gemini não encontrada.");
   }
 
-  return entries;
+  return new GoogleGenAI({ apiKey, httpOptions: { baseUrl, apiVersion: "" } });
 }
 
-function isRetryableError(err: unknown): boolean {
+function isRateLimitError(err: unknown): boolean {
   const msg = String(err).toLowerCase();
   return (
+    msg.includes("ratelimit_exceeded") ||
+    msg.includes("rate limit") ||
     msg.includes("429") ||
-    msg.includes("quota") ||
-    msg.includes("rate") ||
-    msg.includes("401") ||
-    msg.includes("403") ||
-    msg.includes("api_key") ||
-    msg.includes("api key") ||
-    msg.includes("expired") ||
-    msg.includes("invalid") ||
-    msg.includes("not valid") ||
-    msg.includes("not found") ||
-    msg.includes("invalid_endpoint") ||
-    msg.includes("endpoint")
+    msg.includes("resource_exhausted")
   );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function queryGemini(
@@ -43,11 +40,7 @@ export async function queryGemini(
   userQuery: string,
   model: string = GEMINI_MODEL_DEFAULT
 ): Promise<string> {
-  const keys = collectKeys();
-
-  if (keys.length === 0) {
-    throw new Error("Motor não configurado: nenhuma chave de processamento encontrada no faw.env.");
-  }
+  const ai = getAiClient();
 
   const history = await loadUserMemory(memoryKey);
 
@@ -61,17 +54,8 @@ export async function queryGemini(
 
   let lastError: unknown;
 
-  for (const { key, slot } of keys) {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      let ai: GoogleGenAI;
-
-      if (slot === "replit-integration") {
-        const [, apiKey, baseUrl] = key.split("::");
-        ai = new GoogleGenAI({ apiKey, httpOptions: { baseUrl, apiVersion: "" } });
-      } else {
-        ai = new GoogleGenAI({ apiKey: key });
-      }
-
       const response = await ai.models.generateContent({
         model,
         contents,
@@ -87,21 +71,25 @@ export async function queryGemini(
       await recordMemorialEvent({
         type: "ai_response",
         content: reply,
-        metadata: { provider: "gemini", memoryKey, model, slot }
+        metadata: { provider: "gemini", memoryKey, model, slot: "replit-integration" }
       });
-      logger.info({ memoryKey, model, slot }, "Resposta Gemini gerada");
+      logger.info({ memoryKey, model, slot: "replit-integration" }, "Resposta Gemini gerada");
       return reply;
 
     } catch (err) {
       lastError = err;
-      if (isRetryableError(err)) {
-        logger.warn({ slot, err: String(err) }, "Gemini key falhou, tentando próxima");
+
+      if (isRateLimitError(err)) {
+        const delay = BASE_DELAY_MS * attempt;
+        logger.warn({ attempt, delay, err: String(err) }, "Rate limit atingido, aguardando para tentar novamente");
+        await sleep(delay);
         continue;
       }
+
       throw err;
     }
   }
 
-  logger.error({ keysCount: keys.length }, "Todas as Gemini keys falharam");
-  throw new Error(`Todas as ${keys.length} instância(s) do motor falharam. Último erro: ${String(lastError)}`);
+  logger.error({ attempts: MAX_RETRIES }, "Gemini falhou após todas as tentativas");
+  throw new Error(`Gemini falhou após ${MAX_RETRIES} tentativas. Último erro: ${String(lastError)}`);
 }
