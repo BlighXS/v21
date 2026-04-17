@@ -8,6 +8,7 @@ import { config } from "../utils/config.js";
 import { sendToLogChannel } from "../utils/logChannel.js";
 import { setProvider, type AIProvider } from "../ai/providerConfig.js";
 import { isFreeModeOwner } from "../ai/freeMode.js";
+import { setPersonalityMode, type PersonalityMode } from "../ai/modeConfig.js";
 import { buildEmbed } from "../utils/format.js";
 import { getPendingWrite, deletePendingWrite, isExpired } from "../ai/pendingWrites.js";
 import { writeSourceFile } from "../utils/sysinfo.js";
@@ -98,6 +99,26 @@ const event: BotEvent = {
           try { await interaction.reply({ embeds: [embed], ephemeral: true }); } catch { /* ignorar */ }
         }
         logger.info({ provider: providerKey, user: interaction.user.id }, "AI provider atualizado");
+        return;
+      }
+
+      if (interaction.customId === "fwp_mode_gentil" || interaction.customId === "fwp_mode_foco") {
+        if (!isFreeModeOwner(interaction.user.id)) {
+          await interaction.reply({ content: "Sem permissão.", ephemeral: true });
+          return;
+        }
+        const mode: PersonalityMode = interaction.customId === "fwp_mode_gentil" ? "gentil" : "foco";
+        await setPersonalityMode(mode);
+        const label = mode === "gentil"
+          ? "Modo **Gentil 🌸** ativado. A Fawers vai responder com o estilo caloroso de sempre."
+          : "Modo **Foco ⚡** ativado. A Fawers vai ser direta, técnica e sem rodeios.";
+        const embed = buildEmbed("Fawers — Modo atualizado", label, "ok");
+        try {
+          await interaction.update({ embeds: [embed], components: [] });
+        } catch {
+          try { await interaction.reply({ embeds: [embed], ephemeral: true }); } catch { /* ignorar */ }
+        }
+        logger.info({ mode, user: interaction.user.id }, "Modo de personalidade atualizado");
         return;
       }
 

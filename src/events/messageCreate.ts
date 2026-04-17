@@ -20,6 +20,7 @@ import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } 
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
 import { enableFreeMode, disableFreeMode, isFreeModeActive, isFreeModeOwner, FREE_MODE_SYSTEM_SUFFIX } from "../ai/freeMode.js";
 import { getProvider } from "../ai/providerConfig.js";
+import { getPersonalityMode, MODE_FOCO_SUFFIX } from "../ai/modeConfig.js";
 import { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { queryOpenAI } from "../ai/openai.js";
 import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
@@ -541,6 +542,7 @@ const event: BotEvent = {
             `\`${prefix}fwp <msg>\` \u2014 Conversa com a Fawers`,
             `\`${prefix}fwp\` + anexo \u2014 Envia arquivo para a Fawers`,
             `\`${prefix}fwp limpar\` \u2014 Apaga mem\u00f3ria`,
+            `\`${prefix}fwpm\` \u2014 Trocar modo (Gentil / Foco)`,
             `\`${prefix}setup fwp\` \u2014 Selecionar vers\u00e3o da Fawers`,
             `\`${prefix}ufwp\` \u2014 Desbloqueia a Fawers no canal`,
             `\`${prefix}lfwp\` \u2014 Bloqueia a Fawers de volta`,
@@ -932,6 +934,32 @@ const event: BotEvent = {
       return;
     }
 
+    if (command === "fwpm") {
+      if (!isFreeModeOwner(message.author.id)) {
+        const embed = buildEmbed("Acesso negado", "Sem permissão para alterar o modo da Fawers.", "warn");
+        await message.reply({ embeds: [embed] });
+        return;
+      }
+      const currentMode = await getPersonalityMode();
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId("fwp_mode_gentil")
+          .setLabel("Modo Gentil")
+          .setStyle(currentMode === "gentil" ? ButtonStyle.Success : ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId("fwp_mode_foco")
+          .setLabel("Modo Foco")
+          .setStyle(currentMode === "foco" ? ButtonStyle.Danger : ButtonStyle.Secondary)
+      );
+      const embed = buildEmbed(
+        "Fawers — Modo de Personalidade",
+        `Modo atual: **${currentMode === "gentil" ? "Gentil 🌸" : "Foco ⚡"}**\n\nEscolha o modo que a Fawers vai usar nas respostas.`,
+        "info"
+      );
+      await message.reply({ embeds: [embed], components: [row] });
+      return;
+    }
+
     if (command === "fwp") {
       const sub = parts[0]?.toLowerCase();
 
@@ -986,7 +1014,10 @@ const event: BotEvent = {
 
       try {
         const trainingData = await loadTrainingData();
-        systemPrompt = await buildAutonomousSystemPrompt(trainingData.compiledIdentity || trainingData.baseIdentity, message);
+        const personalityMode = await getPersonalityMode();
+        const baseIdentity = trainingData.compiledIdentity || trainingData.baseIdentity;
+        const identityWithMode = personalityMode === "foco" ? baseIdentity + MODE_FOCO_SUFFIX : baseIdentity;
+        systemPrompt = await buildAutonomousSystemPrompt(identityWithMode, message);
 
         const urls = [...userText.matchAll(/https?:\/\/[^\s<>()]+/g)].map((m) => m[0]).slice(0, 3);
         for (const url of urls) {
