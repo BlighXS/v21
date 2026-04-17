@@ -45,14 +45,58 @@ if (config.DISCORD_CLIENT_ID) {
   logger.warn("DISCORD_CLIENT_ID ausente: comandos slash n\u00e3o ser\u00e3o registrados");
 }
 
-// Debug: capture raw gateway events to verify DM events arrive
-client.ws.on("READY" as any, (data: any) => {
-  logger.info({ intents: data?.shard }, "Gateway READY - intents ativos");
+client.on("error", (err) => {
+  logger.error({ err }, "Discord client error");
 });
 
-client.ws.on("MESSAGE_CREATE" as any, (data: any) => {
-  if (!data?.guild_id) {
-    logger.info({ channelId: data?.channel_id, authorId: data?.author?.id, content: data?.content?.slice(0, 50) }, "Gateway RAW: DM MESSAGE_CREATE recebida");
+// Handle DMs directly from raw gateway events (Discord.js partial processing fails for DMs)
+client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
+  if (data?.guild_id) return; // only DMs
+  if (!data?.author || data.author.bot) return;
+  if (!data.content?.trim()) return;
+
+  logger.info({ authorId: data.author?.id, content: data.content?.slice(0, 50) }, "Gateway RAW: processando DM");
+
+  try {
+    const { loadTrainingData } = await import("./training/store.js");
+    const { queryGemini, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
+    const { queryOpenAI } = await import("./ai/openai.js");
+    const { getProvider } = await import("./ai/providerConfig.js");
+    const { truncate } = await import("./utils/format.js");
+
+    const channel = await client.channels.fetch(data.channel_id);
+    if (!channel || !("send" in channel)) return;
+
+    const trainingData = await loadTrainingData();
+    const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
+    const memoryKey = `dm_${data.author.id}`;
+    const content = data.content.trim();
+
+    (channel as any).sendTyping?.().catch(() => {});
+
+    const provider = await getProvider();
+    let reply: string;
+
+    if (provider === "openai-v4") {
+      reply = await queryOpenAI(systemPrompt, memoryKey, content);
+    } else {
+      reply = await queryGemini(systemPrompt, memoryKey, content, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+    }
+
+    const text = reply.replace(/^\[SILENT\]/, "").trim();
+    if (text) {
+      await (channel as any).send(truncate(text, 1900));
+    }
+
+    logger.info({ authorId: data.author.id }, "DM respondida com sucesso");
+  } catch (err) {
+    logger.error({ err, authorId: data.author?.id }, "Falha ao responder DM via gateway raw");
+    try {
+      const channel = await client.channels.fetch(data.channel_id);
+      if (channel && "send" in channel) {
+        await (channel as any).send("Deu erro aqui, tenta de novo.");
+      }
+    } catch {}
   }
 });
 
