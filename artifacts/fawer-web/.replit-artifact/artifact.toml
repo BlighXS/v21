@@ -1,0 +1,13 @@
+kind = "web"
+previewPath = "/"
+title = "FAWER AI"
+version = "1.0.0"
+id = "fawer-web-001"
+
+[[services]]
+localPort = 5174
+name = "FAWER AI Web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/fawer-web run dev"
