@@ -284,11 +284,12 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
 
     const author = message.author;
     const display = message.member?.displayName ?? author.username;
-    const userQuery = `[${display} (<@${author.id}>)]: ${content || "(mensagem sem texto)"}`;
+    const channelName = "name" in message.channel ? (message.channel as { name: string }).name : "desconhecido";
+    const userQuery = `[Canal: #${channelName} | ${display} (<@${author.id}>)]: ${content || "(mensagem sem texto)"}`;
 
-    const memoryKey = `channel_${message.channelId}`;
+    const memoryKey = message.author.id;
 
-    await recordMessageEvent("order_received", message, content || "(mensagem sem texto)", { mode: "free" });
+    await recordMessageEvent("order_received", message, content || "(mensagem sem texto)", { mode: "free", channel: message.channelId });
 
     const { result: rawReply, spinnerMsg } = await runWithSpinner(
       message,
@@ -375,8 +376,8 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
     }
 
     if (cmd === "fwp" && args[1]?.toLowerCase() === "limpar") {
-      await clearUserMemory(`dm_${message.author.id}`);
-      await message.reply({ embeds: [buildEmbed("Memória", "Memória do PV apagada.", "ok")] });
+      await clearUserMemory(message.author.id);
+      await message.reply({ embeds: [buildEmbed("Memória", "Memória apagada.", "ok")] });
       return true;
     }
 
@@ -386,7 +387,7 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
   try {
     const trainingData = await loadTrainingData();
     const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
-    const memoryKey = `dm_${message.author.id}`;
+    const memoryKey = message.author.id;
 
     await message.channel.sendTyping().catch(() => {});
     const typingInterval = setInterval(() => message.channel.sendTyping().catch(() => {}), 8000);
@@ -801,7 +802,7 @@ const event: BotEvent = {
       await message.reply({ embeds: [embed] });
       const trainingData = await loadTrainingData();
       const systemPrompt = (trainingData.compiledIdentity || trainingData.baseIdentity) + FREE_MODE_SYSTEM_SUFFIX;
-      const memoryKey = `channel_${message.channelId}`;
+      const memoryKey = message.author.id;
       (async () => {
         try {
           const intro = await queryOllama(systemPrompt, memoryKey, "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença.");
@@ -952,7 +953,10 @@ const event: BotEvent = {
 
       const start = Date.now();
       let systemPrompt = "";
-      let fullQuery = userText;
+      const channelCtx = message.guild && "name" in message.channel
+        ? `[Canal: #${(message.channel as { name: string }).name}]`
+        : "[Via DM]";
+      let fullQuery = `${channelCtx} ${userText}`;
 
       // Injeta perfis dos usuários mencionados (presença, cargos, atividade)
       if (message.mentions.users.size > 0 && message.guild) {

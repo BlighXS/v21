@@ -8,11 +8,10 @@ export const handleMessage = async (message: Message) => {
     // Ignora bots para evitar loop
     if (message.author.bot) return;
 
-    const prefix = '!';
     const content = message.content.trim();
 
     // Comando !bomb solicitado pelo Criador (BlightG7)
-    if (content.toLowerCase() === prefix + 'bomb') {
+    if (content.toLowerCase() === '!bomb') {
         try {
             await message.reply('Boom! 💣');
             console.log(`[FAWERS-CORE] Comando !bomb executado por ${message.author.tag}`);
@@ -26,6 +25,4 @@ export const handleMessage = async (message: Message) => {
     if (message.author.id === '892469618063589387') {
         // Silencioso, mas processando...
     }
-
-    // Futuras implementações de reversing/malware analysis entrarão aqui
 };

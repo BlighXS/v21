@@ -15,6 +15,9 @@ if (fs.existsSync(fawEnvPath)) {
 
 const { config } = await import("./utils/config.js");
 
+const { migrateMemoryKeys } = await import("./ai/memory.js");
+await migrateMemoryKeys().catch(() => {});
+
 const intents = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildVoiceStates,
@@ -73,6 +76,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
     const { buildEmbed, truncate } = await import("./utils/format.js");
     const { isFreeModeOwner } = await import("./ai/freeMode.js");
     const { stripFwpActionBlocks, buildFileReadFollowUp } = await import("./ai/actions.js");
+    const { buildAutonomousSystemPrompt } = await import("./ai/memorial.js");
     const { config: cfg } = await import("./utils/config.js");
 
     const channel = await client.channels.fetch(data.channel_id);
@@ -99,26 +103,28 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
 
     // Handle ;fwp limpar
     if (rawContent === `${prefix}fwp limpar`) {
-      await clearUserMemory(`dm_${data.author.id}`);
-      await ch.send({ embeds: [buildEmbed("Memória", "Memória do PV apagada.", "ok")] });
+      await clearUserMemory(data.author.id);
+      await ch.send({ embeds: [buildEmbed("Memória", "Memória apagada.", "ok")] });
       return;
     }
 
     // AI response
     const trainingData = await loadTrainingData();
-    const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
-    const memoryKey = `dm_${data.author.id}`;
+    const baseIdentity = trainingData.compiledIdentity || trainingData.baseIdentity;
+    const systemPrompt = await buildAutonomousSystemPrompt(baseIdentity).catch(() => baseIdentity);
+    const memoryKey = data.author.id;
 
     ch.sendTyping().catch(() => {});
     const typingInterval = setInterval(() => ch.sendTyping().catch(() => {}), 8000);
 
     try {
       const provider = await getProvider();
+      const contextualContent = `[Via DM]: ${rawContent}`;
       let raw: string;
       if (provider === "openai-v4") {
-        raw = await queryOpenAI(systemPrompt, memoryKey, rawContent);
+        raw = await queryOpenAI(systemPrompt, memoryKey, contextualContent);
       } else {
-        raw = await queryGemini(systemPrompt, memoryKey, rawContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+        raw = await queryGemini(systemPrompt, memoryKey, contextualContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
       }
       const reply = stripFwpActionBlocks(raw).replace(/^\[SILENT\]/, "").trim();
       if (reply) await ch.send(truncate(reply, 1900));
