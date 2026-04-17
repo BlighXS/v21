@@ -322,12 +322,51 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
   return true;
 }
 
+async function handleDM(message: import("discord.js").Message): Promise<boolean> {
+  if (message.guild) return false;
+  if (message.author.bot) return false;
+
+  const content = message.content.trim();
+  if (!content) return true;
+
+  try {
+    const trainingData = await loadTrainingData();
+    const systemPrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
+    const memoryKey = `dm_${message.author.id}`;
+
+    await message.channel.sendTyping().catch(() => {});
+    const typingInterval = setInterval(() => message.channel.sendTyping().catch(() => {}), 8000);
+
+    try {
+      const raw = await retryOnceAfterOverload(
+        () => queryOllama(systemPrompt, memoryKey, content),
+        async () => { await wait(10_000); }
+      );
+      const reply = stripFwpActionBlocks(raw);
+      if (!reply.startsWith("[SILENT]")) {
+        await message.reply(truncate(reply, 1900));
+      }
+    } finally {
+      clearInterval(typingInterval);
+    }
+  } catch (err) {
+    logger.error({ err, userId: message.author.id }, "Falha ao responder DM");
+    await message.reply("Eita, deu erro aqui. Tenta de novo em instantes.").catch(() => {});
+  }
+
+  return true;
+}
+
 const event: BotEvent = {
   name: "messageCreate",
   async execute(message) {
     if (!config.ENABLE_PREFIX) return;
-    if (!message.guild) return;
     if (message.author.bot) return;
+
+    const dmHandled = await handleDM(message);
+    if (dmHandled) return;
+
+    if (!message.guild) return;
     startPendingFwpWorker(message.client);
 
     // Free mode: intercept non-command messages in unlocked channels

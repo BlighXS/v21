@@ -6,7 +6,7 @@ import { handleBackupButton, handleBackupSelect } from "../backup/backup.js";
 import { isAdmin } from "../utils/permissions.js";
 import { config } from "../utils/config.js";
 import { sendToLogChannel } from "../utils/logChannel.js";
-import { setProvider } from "../ai/providerConfig.js";
+import { setProvider, type AIProvider } from "../ai/providerConfig.js";
 import { isFreeModeOwner } from "../ai/freeMode.js";
 import { buildEmbed } from "../utils/format.js";
 
@@ -19,24 +19,26 @@ const event: BotEvent = {
           await interaction.reply({ content: "Sem permissão.", ephemeral: true });
           return;
         }
+        let providerKey: string;
+        let label: string;
         if (interaction.customId === "fwp_model_beta") {
-          await setProvider("ollama");
-          const embed = buildEmbed("Setup — Fawers", "Modelo **Beta** selecionado e ativo.", "ok");
-          await interaction.update({ embeds: [embed], components: [] });
+          providerKey = "ollama"; label = "Modelo **Beta** selecionado e ativo.";
         } else if (interaction.customId === "fwp_model_v2") {
-          await setProvider("gemini");
-          const embed = buildEmbed("Setup — Fawers", "Modelo **FAWER_V2.01** selecionado e ativo.", "ok");
-          await interaction.update({ embeds: [embed], components: [] });
+          providerKey = "gemini"; label = "Modelo **FAWER_V2.01** selecionado e ativo.";
         } else if (interaction.customId === "fwp_model_v3") {
-          await setProvider("gemini-v3");
-          const embed = buildEmbed("Setup — Fawers", "Modelo **FAWER Flash V3.0** selecionado e ativo.", "ok");
-          await interaction.update({ embeds: [embed], components: [] });
+          providerKey = "gemini-v3"; label = "Modelo **FAWER Flash V3.0** selecionado e ativo.";
         } else {
-          await setProvider("openai-v4");
-          const embed = buildEmbed("Setup — Fawers", "Modelo **FAWER V4 (ChatGPT)** selecionado e ativo.", "ok");
-          await interaction.update({ embeds: [embed], components: [] });
+          providerKey = "openai-v4"; label = "Modelo **FAWER V4 (ChatGPT)** selecionado e ativo.";
         }
-        logger.info({ provider: interaction.customId, user: interaction.user.id }, "Modelo FWP atualizado");
+        await setProvider(providerKey as AIProvider);
+        const embed = buildEmbed("✅ Setup — Fawers", label, "ok");
+        try {
+          await interaction.update({ embeds: [embed], components: [] });
+        } catch {
+          // Interação expirada — tenta responder como fallback
+          try { await interaction.reply({ embeds: [embed], ephemeral: true }); } catch { /* ignorar */ }
+        }
+        logger.info({ provider: providerKey, user: interaction.user.id }, "AI provider atualizado");
         return;
       }
 
