@@ -369,12 +369,15 @@ const event: BotEvent = {
   name: "messageCreate",
   async execute(message) {
     if (!config.ENABLE_PREFIX) return;
-    if (message.author.bot) return;
 
-    const dmHandled = await handleDM(message);
-    if (dmHandled) return;
+    // For DMs: partial messages arrive without author — handle them first
+    if (!message.guild) {
+      const dmHandled = await handleDM(message);
+      if (dmHandled) return;
+      return;
+    }
 
-    if (!message.guild) return;
+    if (message.author?.bot) return;
     startPendingFwpWorker(message.client);
 
     // Free mode: intercept non-command messages in unlocked channels
