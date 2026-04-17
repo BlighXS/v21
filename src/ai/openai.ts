@@ -37,7 +37,7 @@ export async function queryOpenAI(
   const response = await client.chat.completions.create({
     model,
     messages,
-    max_tokens: 8192
+    max_completion_tokens: 8192
   });
 
   const reply = response.choices[0]?.message?.content?.trim() || "Sem resposta gerada.";
