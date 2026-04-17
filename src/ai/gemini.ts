@@ -6,8 +6,8 @@ import { recordMemorialEvent } from "./memorial.js";
 const GEMINI_MODEL_DEFAULT = "gemini-2.5-flash";
 export const GEMINI_MODEL_V3 = "gemini-3-flash-preview";
 
-const MAX_RETRIES = 5;
-const BASE_DELAY_MS = 3000;
+const MAX_RETRIES = 2;
+const BASE_DELAY_MS = 1500;
 
 function getAiClient(): GoogleGenAI {
   const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
