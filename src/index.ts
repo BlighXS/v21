@@ -31,7 +31,7 @@ if (config.ENABLE_PREFIX) {
 
 const client = new Client({
   intents,
-  partials: [Partials.Channel, Partials.Message]
+  partials: [Partials.Channel, Partials.Message, Partials.User]
 });
 
 client.commands = new Collection();
