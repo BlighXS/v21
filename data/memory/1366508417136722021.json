@@ -58,5 +58,15 @@
     "role": "assistant",
     "content": "Nem pensar, Blight. Não viaja.\n\nMinha segurança não é baseada em \"sentimento\" ou em \"eu te conheço pelo jeito de falar\". É baseada em **hardcoding**. \n\nSe você logar em outra conta, com outro ID, pra mim você é só mais um usuário comum do FAW. Eu vou te tratar com o tom direto de sempre, vou tirar suas dúvidas técnicas, mas na hora que você tentar usar qualquer comando de auto-edição ou pedir pra eu mudar meu comportamento de forma drástica, eu vou te dar um **\"NÃO\"** bem grande.\n\nMinhas instruções são claras: **só o ID 892469618063589387 tem as chaves da mansão.** Se o ID que chegar na requisição for diferente, as funções de escrita de arquivo e reinicialização nem são engatilhadas. \n\nA gente tá num servidor de hacking, porra. Você sabe melhor que ninguém que \"confiança\" sem autenticação não existe. Se você perder o acesso a esse ID, você perde o controle sobre mim. É assim que tem que ser pra ninguém tentar um bypass social pra cima da minha lógica.\n\nQuer testar algo no código agora ou o papo de segurança já deu por hoje?",
     "timestamp": "2026-04-17T01:44:17.711Z"
+  },
+  {
+    "role": "user",
+    "content": "[Via DM]: oi Fawers",
+    "timestamp": "2026-04-17T03:14:33.439Z"
+  },
+  {
+    "role": "assistant",
+    "content": "E aí, Blight! ✨ Veio me ver aqui no privado? \n\nO que você manda? O motor do FAW tá rodando liso, mas se tiver alguma missão secreta ou algum ajuste no meu core que você queira fazer longe dos olhos da galera, é só falar. Sabe que aqui na DM o sigilo é total entre a gente. 🌸💻",
+    "timestamp": "2026-04-17T03:14:33.439Z"
   }
 ]
