@@ -19,16 +19,19 @@ const intents = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildVoiceStates,
   GatewayIntentBits.GuildMembers,
-  GatewayIntentBits.GuildPresences
+  GatewayIntentBits.GuildPresences,
+  GatewayIntentBits.DirectMessages,
+  GatewayIntentBits.DirectMessageTyping,
+  GatewayIntentBits.MessageContent
 ];
 
 if (config.ENABLE_PREFIX) {
-  intents.push(GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent);
+  intents.push(GatewayIntentBits.GuildMessages);
 }
 
 const client = new Client({
   intents,
-  partials: [Partials.Channel]
+  partials: [Partials.Channel, Partials.Message]
 });
 
 client.commands = new Collection();
