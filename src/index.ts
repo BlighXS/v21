@@ -159,6 +159,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
             pendingReads = followPass.fileReads;
           } catch (followErr) {
             logger.warn({ followErr, pass }, "DM: passada de leitura falhou");
+            await ch.send("⚠️ Tive um problema interno ao processar o arquivo. Pode repetir o pedido?").catch(() => {});
             break;
           }
         }

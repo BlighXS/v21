@@ -321,6 +321,7 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
         pendingReads = followPass.fileReads;
       } catch (err) {
         logger.warn({ err, pass }, "Free mode: passada de leitura falhou");
+        await message.channel.send("⚠️ Tive um problema interno ao processar o arquivo. Pode repetir o pedido?").catch(() => {});
         break;
       }
     }
