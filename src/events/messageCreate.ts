@@ -23,7 +23,7 @@ import { getProvider } from "../ai/providerConfig.js";
 import { queryGemini, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { queryOpenAI } from "../ai/openai.js";
 import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
-import { executeFwpActions, stripFwpActionBlocks } from "../ai/actions.js";
+import { executeFwpActions, stripFwpActionBlocks, buildFileReadFollowUp } from "../ai/actions.js";
 
 function canRestart(member: GuildMember): boolean {
   if (config.RESTART_ROLE_IDS.length === 0) return isAdminMember(member);
@@ -302,8 +302,25 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
       )
     );
 
-    const actionReports = await executeFwpActions(message, rawReply);
-    const reply = stripFwpActionBlocks(rawReply);
+    const firstPass = await executeFwpActions(message, rawReply);
+    let allReports = [...firstPass.reports];
+    let finalRawReply = rawReply;
+
+    if (firstPass.fileReads.length > 0) {
+      try {
+        const followUpQuery = buildFileReadFollowUp(firstPass.fileReads);
+        const secondRaw = await queryOllama(systemPrompt, memoryKey, followUpQuery);
+        const secondPass = await executeFwpActions(message, secondRaw);
+        allReports = [...allReports, ...secondPass.reports];
+        if (!stripFwpActionBlocks(secondRaw).startsWith("[SILENT]")) {
+          finalRawReply = secondRaw;
+        }
+      } catch (err) {
+        logger.warn({ err }, "Free mode: segunda passada de leitura falhou");
+      }
+    }
+
+    const reply = stripFwpActionBlocks(finalRawReply);
 
     await spinnerMsg.delete().catch(() => {});
 
@@ -312,7 +329,7 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
       return true;
     }
 
-    const finalReply = actionReports.length > 0 ? `${reply}\n\n${actionReports.join("\n")}` : reply;
+    const finalReply = allReports.length > 0 ? `${reply}\n\n${allReports.join("\n")}` : reply;
     await message.channel.send(truncate(finalReply, 1900));
     logger.info({ channel: message.channelId, author: author.id }, "Free mode: resposta enviada");
   } catch (err) {
@@ -1005,8 +1022,25 @@ const event: BotEvent = {
           )
         );
 
-        const actionReports = await executeFwpActions(message, rawResponse);
-        const response = stripFwpActionBlocks(rawResponse);
+        const firstPass = await executeFwpActions(message, rawResponse);
+        let allReports = [...firstPass.reports];
+        let finalRawResponse = rawResponse;
+
+        if (firstPass.fileReads.length > 0) {
+          try {
+            const followUpQuery = buildFileReadFollowUp(firstPass.fileReads);
+            const secondRaw = await queryFwp(systemPrompt, message.author.id, followUpQuery);
+            const secondPass = await executeFwpActions(message, secondRaw);
+            allReports = [...allReports, ...secondPass.reports];
+            if (!stripFwpActionBlocks(secondRaw).startsWith("[SILENT]")) {
+              finalRawResponse = secondRaw;
+            }
+          } catch (err) {
+            logger.warn({ err }, "FWP: segunda passada de leitura falhou");
+          }
+        }
+
+        const response = stripFwpActionBlocks(finalRawResponse);
 
         const files: AttachmentBuilder[] = [];
 
@@ -1021,7 +1055,7 @@ const event: BotEvent = {
           }
         }
 
-        const finalResponse = actionReports.length > 0 ? `${response}\n\n${actionReports.join("\n")}` : response;
+        const finalResponse = allReports.length > 0 ? `${response}\n\n${allReports.join("\n")}` : response;
         const trimmed = truncate(finalResponse, 1900);
         const embed = buildEmbed("Fawers", trimmed, "action");
 

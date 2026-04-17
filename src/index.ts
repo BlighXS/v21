@@ -72,7 +72,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
     const { clearUserMemory } = await import("./ai/memory.js");
     const { buildEmbed, truncate } = await import("./utils/format.js");
     const { isFreeModeOwner } = await import("./ai/freeMode.js");
-    const { stripFwpActionBlocks } = await import("./ai/actions.js");
+    const { stripFwpActionBlocks, buildFileReadFollowUp } = await import("./ai/actions.js");
     const { config: cfg } = await import("./utils/config.js");
 
     const channel = await client.channels.fetch(data.channel_id);
@@ -128,9 +128,29 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       const { executeFwpActions } = await import("./ai/actions.js");
       try {
         const fullMsg = await ch.messages.fetch(data.id);
-        const actionReports = await executeFwpActions(fullMsg, raw);
-        for (const report of actionReports) {
+        const firstPass = await executeFwpActions(fullMsg, raw);
+        for (const report of firstPass.reports) {
           await ch.send(`> ${report}`).catch(() => {});
+        }
+
+        if (firstPass.fileReads.length > 0) {
+          try {
+            const followUpQuery = buildFileReadFollowUp(firstPass.fileReads);
+            let secondRaw: string;
+            if (provider === "openai-v4") {
+              secondRaw = await queryOpenAI(systemPrompt, memoryKey, followUpQuery);
+            } else {
+              secondRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : undefined);
+            }
+            const secondPass = await executeFwpActions(fullMsg, secondRaw);
+            const secondReply = stripFwpActionBlocks(secondRaw).replace(/^\[SILENT\]/, "").trim();
+            if (secondReply) await ch.send(truncate(secondReply, 1900)).catch(() => {});
+            for (const report of secondPass.reports) {
+              await ch.send(`> ${report}`).catch(() => {});
+            }
+          } catch (followErr) {
+            logger.warn({ followErr }, "DM: segunda passada de leitura falhou");
+          }
         }
       } catch (actionErr) {
         logger.warn({ actionErr }, "Não foi possível executar ações FWP na DM");

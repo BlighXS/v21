@@ -27,6 +27,16 @@ export function stripFwpActionBlocks(text: string): string {
   return text.replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "").trim();
 }
 
+export interface FwpFileRead {
+  path: string;
+  content: string;
+}
+
+export interface FwpExecutionResult {
+  reports: string[];
+  fileReads: FwpFileRead[];
+}
+
 function extractActions(text: string): FwpAction[] {
   const actions: FwpAction[] = [];
   const regex = /\[FWP_ACTION\]([\s\S]*?)\[\/FWP_ACTION\]/g;
@@ -274,14 +284,19 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
   }
 }
 
-async function executeReadSourceFile(message: Message, action: Extract<FwpAction, { type: "read_source_file" }>): Promise<string> {
+async function executeReadSourceFile(
+  message: Message,
+  action: Extract<FwpAction, { type: "read_source_file" }>,
+  pendingReads: FwpFileRead[]
+): Promise<string> {
   if (!action.path?.trim()) return "Nenhum caminho especificado para leitura.";
   try {
     const content = await readSourceFile(action.path.trim());
-    const preview = content.length > 6000 ? content.slice(0, 6000) + "\n...[truncado]" : content;
+    const preview = content.length > 8000 ? content.slice(0, 8000) + "\n...[truncado]" : content;
     const summary = `[LEITURA DE ARQUIVO: ${action.path}]\n${preview}`;
     await recordMessageEvent("system", message, summary, { action: "read_source_file", path: action.path });
-    return `Arquivo \`${action.path}\` lido (${content.length} chars). Conteúdo registrado na memória operacional — disponível na próxima interação.`;
+    pendingReads.push({ path: action.path.trim(), content });
+    return `Arquivo \`${action.path}\` lido (${content.length} chars). Conteúdo injetado na próxima passada de raciocínio — você poderá escrever o arquivo modificado imediatamente.`;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return `Erro ao ler \`${action.path}\`: ${msg}`;
@@ -396,9 +411,10 @@ async function executeGenerateImage(message: Message, action: Extract<FwpAction,
   }
 }
 
-export async function executeFwpActions(message: Message, response: string): Promise<string[]> {
+export async function executeFwpActions(message: Message, response: string): Promise<FwpExecutionResult> {
   const actions = extractActions(response);
   const reports: string[] = [];
+  const fileReads: FwpFileRead[] = [];
 
   for (const action of actions) {
     try {
@@ -450,9 +466,11 @@ export async function executeFwpActions(message: Message, response: string): Pro
         await addBotPreference(action.content);
         await recordMessageEvent("ai_action", message, action.content, { action: "remember" });
         reports.push("Memória interna registrada.");
+        continue;
       }
+
       if (action.type === "read_source_file") {
-        reports.push(await executeReadSourceFile(message, action));
+        reports.push(await executeReadSourceFile(message, action, fileReads));
         continue;
       }
 
@@ -486,9 +504,7 @@ export async function executeFwpActions(message: Message, response: string): Pro
         continue;
       }
 
-      if (!["create_channel", "create_category", "move_channel", "ban_member", "kick_member", "set_biography", "remember", "read_source_file", "write_source_file", "list_source_files", "generate_image", "mute_member", "send_message", "restart_self"].includes(action.type)) {
-        reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
-      }
+      reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "erro desconhecido";
       reports.push(`Ação FWP falhou: ${msg}`);
@@ -496,5 +512,19 @@ export async function executeFwpActions(message: Message, response: string): Pro
     }
   }
 
-  return reports;
+  return { reports, fileReads };
+}
+
+export function buildFileReadFollowUp(fileReads: FwpFileRead[]): string {
+  const blocks = fileReads.map(({ path, content }) => {
+    const preview = content.length > 8000 ? content.slice(0, 8000) + "\n...[truncado por tamanho]" : content;
+    return `[CONTEÚDO DO ARQUIVO: ${path}]\n\`\`\`\n${preview}\n\`\`\``;
+  });
+  return [
+    "[SISTEMA] Leitura concluída. Os conteúdos dos arquivos solicitados estão abaixo.",
+    "Agora você tem o código real em mãos. Escreva a versão modificada COMPLETA do arquivo usando write_source_file.",
+    "IMPORTANTE: escreva o arquivo inteiro, não apenas as partes alteradas.",
+    "",
+    ...blocks
+  ].join("\n");
 }
