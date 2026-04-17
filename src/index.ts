@@ -45,6 +45,17 @@ if (config.DISCORD_CLIENT_ID) {
   logger.warn("DISCORD_CLIENT_ID ausente: comandos slash n\u00e3o ser\u00e3o registrados");
 }
 
+// Debug: capture raw gateway events to verify DM events arrive
+client.ws.on("READY" as any, (data: any) => {
+  logger.info({ intents: data?.shard }, "Gateway READY - intents ativos");
+});
+
+client.ws.on("MESSAGE_CREATE" as any, (data: any) => {
+  if (!data?.guild_id) {
+    logger.info({ channelId: data?.channel_id, authorId: data?.author?.id, content: data?.content?.slice(0, 50) }, "Gateway RAW: DM MESSAGE_CREATE recebida");
+  }
+});
+
 client.login(config.DISCORD_TOKEN);
 
 const { startDashboard } = await import("./web/dashboard.js");
