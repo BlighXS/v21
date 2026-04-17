@@ -1,26 +1,6 @@
 [
   {
     "role": "user",
-    "content": "conheça a <@1491458201793597511> (Yankee), <@878044391602815007> (Happy), <@1052646068740956180> (Testa) e <@743637601243758632> (Azazel)",
-    "timestamp": "2026-04-16T19:51:08.035Z"
-  },
-  {
-    "role": "assistant",
-    "content": "Beleza, entendi. Yankee, Happy, Testa e Azazel, sejam bem-vindos ao FAW.\n\nSe a parada for técnica, sobre reversing, cracking, malware, exploits ou programação, podem mandar a braba. É pra isso que eu sirvo.",
-    "timestamp": "2026-04-16T19:51:08.035Z"
-  },
-  {
-    "role": "user",
-    "content": "quem voce conhece dentro da faw ate agora?",
-    "timestamp": "2026-04-16T19:51:37.764Z"
-  },
-  {
-    "role": "assistant",
-    "content": "Até agora, na FAW, eu conheço:\n\n*   **BlightG7** (meu criador, ID Discord: 892469618063589387)\n*   **Vinicius** (<@1429819332594237443>)\n*   **Yankee** (<@1491458201793597511>)\n*   **Happy** (<@878044391602815007>)\n*   **Testa** (<@1052646068740956180>)\n*   **Azazel** (<@743637601243758632>)\n\nEssa é a lista dos que me foram apresentados diretamente.",
-    "timestamp": "2026-04-16T19:51:37.764Z"
-  },
-  {
-    "role": "user",
     "content": "quantos canais temos ao servidor?",
     "timestamp": "2026-04-16T19:52:46.332Z"
   },
@@ -1498,5 +1478,25 @@
     "role": "assistant",
     "content": "Com certeza, Blight! ✨ Vou reiniciar o motor agora mesmo. \n\nTô ansiosa pra voltar com esse novo SDK e ver como a minha performance vai decolar! 🌸⚙️ Volto num piscar de olhos pra gente testar tudo. 🚀😊\n\n[FWP_ACTION]{\"type\":\"restart_self\",\"reason\":\"Reinicio solicitado pelo Criador para aplicar a troca do SDK no core.\"}[/FWP_ACTION]",
     "timestamp": "2026-04-17T04:40:06.463Z"
+  },
+  {
+    "role": "user",
+    "content": "[Canal: #geral | BlightFW </> (<@892469618063589387>)]: ae",
+    "timestamp": "2026-04-17T04:41:05.523Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Oie, Blight! ✨ Tô de volta e operacional. 🌸⚙️\n\nSe você trocou o SDK, me diz só duas coisas pra eu validar rapidinho:\n1) o que mudou (provider/modelo/SDK), e  \n2) se quer que eu rode um teste rápido (tipo `;ping`, `;fwp oi`, `!bomb`, tickets).\n\nTô prontinha pra calibrar o que precisar. 💻✨",
+    "timestamp": "2026-04-17T04:41:05.523Z"
+  },
+  {
+    "role": "user",
+    "content": "[Canal: #geral | BlightFW </> (<@892469618063589387>)]: teste seu hardware primeiro, qual informação do sistema que eu dei pra voc e?",
+    "timestamp": "2026-04-17T04:42:05.396Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Blight, o setup que você me deu (o host onde eu tô rodando agora) é esse aqui:\n\n- **OS:** Linux 6.14.11 (linux/x64)  \n- **CPU:** 8x AMD EPYC 7B13  \n- **GPU:** NVIDIA RTX A6000 (48 GB VRAM)  \n- **RAM:** 64.306 MB total | **43.929 MB usada** | **20.377 MB livre**  \n- **Node.js:** v24.13.0  \n- **Hostname:** a4ccd67f0434  \n- **Uptime do sistema:** 3h 32m 6s  \n- **Uptime do processo (eu):** 0h 0m 58s  \n\nSe quiser, eu rodo um “ping” interno do bot (latência WS + roundtrip) e te passo os números também. ⚙️💻",
+    "timestamp": "2026-04-17T04:42:05.396Z"
   }
 ]
