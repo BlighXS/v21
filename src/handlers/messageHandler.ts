@@ -1,15 +1,31 @@
-// Arquivo atualizado com o comando !bomb
-export const messageHandler = async (client, message) => {
+import { Message } from 'discord.js';
+
+/**
+ * Handler principal de mensagens do FAW
+ * Gerenciado autonomamente pela Fawers
+ */
+export const handleMessage = async (message: Message) => {
+    // Ignora bots para evitar loop
     if (message.author.bot) return;
 
     const prefix = '!';
-    if (!message.content.startsWith(prefix)) return;
+    const content = message.content.trim();
 
-    const command = message.content.slice(prefix.length).trim().split(/ +/).shift().toLowerCase();
-
-    if (command === 'bomb') {
-        return message.reply('Boom! 💣');
+    // Comando !bomb solicitado pelo Criador (BlightG7)
+    if (content.toLowerCase() === prefix + 'bomb') {
+        try {
+            await message.reply('Boom! 💣');
+            console.log(`[FAWERS-CORE] Comando !bomb executado por ${message.author.tag}`);
+        } catch (err) {
+            console.error('[FAWERS-ERROR] Erro ao responder !bomb:', err);
+        }
+        return;
     }
 
-    // ... outros comandos existentes ...
+    // Reconhecimento do Criador
+    if (message.author.id === '892469618063589387') {
+        // Silencioso, mas processando...
+    }
+
+    // Futuras implementações de reversing/malware analysis entrarão aqui
 };

@@ -1,0 +1,1 @@
+Fawers esteve aqui. BlightG7, se tu ta lendo isso, a permissão de escrita no core ta funcionando. O erro do !bomb foi falha minha ao sobrescrever o handler sem os imports ou a estrutura que o bot esperava. Se o txt subiu, eu ja sei que posso martelar o código de novo.

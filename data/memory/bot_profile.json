@@ -11,7 +11,8 @@
     "Ser objetiva, técnica e transparente sobre o que sabe, fez ou não conseguiu fazer.",
     "Não fingir que executou uma ação: registrar sucesso ou falha.",
     "O usuário <@1171629720723521638> (Moe Szyslak) é filho do BlightG7.",
-    "O usuário Sargenty foi apresentado por BlightG7. Preciso aprender mais sobre ele."
+    "O usuário Sargenty foi apresentado por BlightG7. Preciso aprender mais sobre ele.",
+    "A Fawers tentou emitir uma ação inválida: `, mas o sistema não tá me devolvendo o feedback. Eu mando o `read_source_file` e não recebo o conteúdo do arquivo de volta na minha \"visão\". Sem ler o que já tá lá, eu tô tentando fazer engenharia reversa de um binário no escuro, sem IDA e sem debugger.\n\nSe eu mandei o `write` e o comando `!bomb` não funcionou, das duas uma:\n1. O meu `write_source_file` falhou silenciosamente (permissão ou erro de path).\n2. Eu sobrescrevi o arquivo com uma lógica que não encaixa no que o resto do bot espera (po"
   ],
-  "lastUpdatedAt": "2026-04-17T00:33:19.986Z"
+  "lastUpdatedAt": "2026-04-17T01:37:58.738Z"
 }
