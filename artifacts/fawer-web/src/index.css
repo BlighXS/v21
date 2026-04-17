@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base: #080808;
-  --bg-surface: #0f0f0f;
-  --bg-elevated: #161616;
-  --bg-border: #1f1f1f;
-  --bg-hover: #1a1a1a;
-  --text-primary: #f0f0f0;
-  --text-secondary: #888;
-  --text-muted: #555;
+  --bg-base: #1e1e2e;
+  --bg-surface: #181825;
+  --bg-elevated: #313244;
+  --bg-border: #45475a;
+  --bg-hover: #2a2a3c;
+  --text-primary: #cdd6f4;
+  --text-secondary: #a6adc8;
+  --text-muted: #6c7086;
   --accent: #7c6ee6;
   --accent-hover: #9585f0;
   --accent-glow: rgba(124, 110, 230, 0.15);
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
+  --success: #a6e3a1;
+  --warning: #f9e2af;
+  --danger: #f38ba8;
 }
 
 * {
@@ -34,6 +34,7 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
 code, pre {
@@ -48,11 +49,11 @@ code, pre {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-border);
+  background: var(--bg-elevated);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--bg-border);
 }
 
 ::selection {
@@ -83,30 +84,31 @@ code, pre {
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
 .glass {
-  background: rgba(255,255,255,0.03);
-  backdrop-filter: blur(12px);
+  background: rgba(30, 30, 46, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255,255,255,0.06);
 }
 
 .glow-accent {
-  box-shadow: 0 0 20px var(--accent-glow);
+  box-shadow: 0 0 24px var(--accent-glow);
 }
 
 pre code {
   display: block;
   overflow-x: auto;
-  padding: 1rem;
-  border-radius: 8px;
-  background: #111;
-  border: 1px solid var(--bg-border);
-  font-size: 0.85rem;
-  line-height: 1.6;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  background: #11111b;
+  border: 1px solid var(--bg-elevated);
+  font-size: 0.82rem;
+  line-height: 1.7;
 }
 
 p code {
   background: var(--bg-elevated);
   border: 1px solid var(--bg-border);
-  border-radius: 4px;
-  padding: 1px 6px;
+  border-radius: 5px;
+  padding: 1px 7px;
   font-size: 0.875em;
 }

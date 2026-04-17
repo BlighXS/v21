@@ -40,15 +40,17 @@ export default function MessageBubble({ message }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex justify-end px-4 py-1.5"
+        transition={{ duration: 0.25 }}
+        className="flex justify-end px-6 py-1.5"
       >
         <div
-          className="max-w-[72%] rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed"
+          className="max-w-[72%] rounded-2xl rounded-tr-md px-4 py-3 text-sm"
           style={{
-            background: "var(--accent)",
+            background: "linear-gradient(135deg, var(--accent) 0%, #5b8af4 100%)",
             color: "white",
             wordBreak: "break-word",
+            lineHeight: 1.65,
+            boxShadow: "0 2px 16px rgba(124,110,230,0.2)",
           }}
         >
           {message.content}
@@ -61,24 +63,24 @@ export default function MessageBubble({ message }: Props) {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="flex gap-3 px-4 py-1.5"
+      transition={{ duration: 0.25 }}
+      className="flex gap-3 px-6 py-2"
     >
-      {/* Avatar */}
       <div className="flex-shrink-0 mt-0.5">
         <div
           className="flex items-center justify-center rounded-xl"
           style={{
-            width: 28,
-            height: 28,
+            width: 30,
+            height: 30,
             background: message.error
-              ? "rgba(248,113,113,0.1)"
+              ? "rgba(243,139,168,0.1)"
               : "linear-gradient(135deg, var(--accent) 0%, #5b8af4 100%)",
-            border: message.error ? "1px solid rgba(248,113,113,0.3)" : "none",
+            border: message.error ? "1px solid rgba(243,139,168,0.3)" : "none",
+            boxShadow: message.error ? "none" : "0 2px 8px rgba(124,110,230,0.2)",
           }}
         >
           {message.error ? (
-            <AlertCircle size={14} style={{ color: "#f87171" }} />
+            <AlertCircle size={14} style={{ color: "var(--danger)" }} />
           ) : (
             <svg width="14" height="14" viewBox="0 0 36 36" fill="none">
               <path d="M18 4L32 28H4L18 4Z" fill="white" opacity="0.9" />
@@ -88,42 +90,44 @@ export default function MessageBubble({ message }: Props) {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0 pt-0.5">
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+          <span className="text-xs font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
             FAWER AI
           </span>
           {message.provider && (
             <span
-              className="text-xs rounded px-1.5 py-0.5"
+              className="text-xs rounded-md px-1.5 py-0.5"
               style={{
-                background: "var(--bg-border)",
-                color: "var(--text-muted)",
-                fontSize: "0.65rem",
-                fontWeight: 600,
+                background: "var(--bg-elevated)",
+                color: "var(--accent)",
+                fontSize: "0.6rem",
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                border: "1px solid rgba(124,110,230,0.2)",
               }}
             >
               {MODEL_NAMES[message.provider] ?? message.provider}
             </span>
           )}
           {message.error && (
-            <span className="text-xs" style={{ color: "#f87171" }}>
+            <span className="text-xs font-medium" style={{ color: "var(--danger)" }}>
               Erro
             </span>
           )}
         </div>
 
         <div
-          className="text-sm leading-relaxed"
+          className="text-sm"
           style={{
-            color: message.error ? "#f87171" : "var(--text-primary)",
+            color: message.error ? "var(--danger)" : "var(--text-primary)",
             wordBreak: "break-word",
+            lineHeight: 1.7,
           }}
           dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
         />
 
-        <div className="mt-1.5 text-xs" style={{ color: "var(--text-muted)", fontSize: "0.65rem" }}>
+        <div className="mt-2 text-xs" style={{ color: "var(--text-muted)", fontSize: "0.62rem" }}>
           {message.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>

@@ -101,6 +101,7 @@ export default function App() {
               >
                 <Sidebar
                   user={user}
+                  guestLeft={guestLeft}
                   conversations={chat.conversations}
                   activeConvId={chat.activeConvId}
                   onSelectConv={chat.setActiveConvId}
