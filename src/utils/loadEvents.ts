@@ -11,19 +11,31 @@ export async function loadEvents(client: Client) {
   const files = await walk(eventsPath);
   const eventFiles = files.filter((f) => f.endsWith(".ts") || f.endsWith(".js"));
 
+  const registeredCounts: Record<string, number> = {};
+
   for (const file of eventFiles) {
     const mod = await import(pathToFileURL(file).toString());
-    const event = mod.default as BotEvent | undefined;
 
-    if (!event) {
-      logger.warn({ file }, "Event missing default export");
+    const raw = mod.default;
+    if (!raw) {
+      logger.warn({ file }, "Event file missing default export, skipping");
       continue;
     }
 
-    registerEvent(client, event);
+    const events: BotEvent[] = Array.isArray(raw) ? raw : [raw];
+
+    for (const event of events) {
+      if (!event || typeof event.name !== "string" || typeof event.execute !== "function") {
+        logger.warn({ file }, "Invalid event shape, skipping entry");
+        continue;
+      }
+      registerEvent(client, event);
+      registeredCounts[event.name] = (registeredCounts[event.name] ?? 0) + 1;
+    }
   }
 
-  logger.info({ count: eventFiles.length }, "Loaded events");
+  const totalHandlers = Object.values(registeredCounts).reduce((a, b) => a + b, 0);
+  logger.info({ count: eventFiles.length, handlers: totalHandlers, breakdown: registeredCounts }, "Loaded events");
 }
 
 async function walk(dir: string): Promise<string[]> {

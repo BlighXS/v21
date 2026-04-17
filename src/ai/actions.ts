@@ -1,9 +1,10 @@
 import { ActivityType, AttachmentBuilder, ChannelType, PermissionsBitField, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import type { Guild, Message } from "discord.js";
-import { addBotPreference, recordMessageEvent, updateBotBiography } from "./memorial.js";
+import { addBotPreference, recordMessageEvent, recordMemorialEvent, updateBotBiography } from "./memorial.js";
 import { readSourceFile, writeSourceFile, listSourceFiles } from "../utils/sysinfo.js";
 import { generateImage } from "./imageGen.js";
 import { createPendingWrite } from "./pendingWrites.js";
+import { config } from "../utils/config.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -16,7 +17,7 @@ type FwpAction =
   | { type: "kick_member"; userId?: string; reason?: string }
   | { type: "set_biography"; biography?: string }
   | { type: "remember"; content?: string }
-  | { type: "read_source_file"; path?: string }
+  | { type: "read_source_file"; path?: string; fromLine?: number; toLine?: number }
   | { type: "write_source_file"; path?: string; content?: string }
   | { type: "list_source_files"; dir?: string }
   | { type: "generate_image"; prompt?: string; imageUrl?: string }
@@ -53,7 +54,14 @@ function extractActions(text: string): FwpAction[] {
   return actions.slice(0, 5);
 }
 
+function getTargetGuild(message: Message) {
+  if (message.guild) return message.guild;
+  const byConfig = config.DISCORD_GUILD_ID ? message.client.guilds.cache.get(config.DISCORD_GUILD_ID) : undefined;
+  return byConfig ?? message.client.guilds.cache.first() ?? null;
+}
+
 function canCreateChannels(message: Message): boolean {
+  if (message.author.id === BOT_OWNER_ID) return true;
   const member = message.member;
   if (!member) return false;
   if (member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
@@ -81,12 +89,13 @@ function comparableName(name: string): string {
   return normalizeChannelName(name).toLowerCase();
 }
 
-async function ensureCanManageChannels(message: Message): Promise<string | null> {
-  if (!message.guild) return "mensagem fora de servidor.";
-  if (!canCreateChannels(message)) return `apenas usuários com o cargo <@&${CHANNEL_CREATOR_ROLE_ID}> ou administradores podem pedir isso pelo FWP.`;
-  const me = message.guild.members.me;
-  if (!me?.permissions.has(PermissionsBitField.Flags.ManageChannels)) return "o bot não tem permissão Gerenciar Canais.";
-  return null;
+async function ensureCanManageChannels(message: Message): Promise<{ error: string } | { guild: Guild }> {
+  const guild = getTargetGuild(message);
+  if (!guild) return { error: "nenhum servidor encontrado." };
+  if (!canCreateChannels(message)) return { error: `apenas usuários com o cargo <@&${CHANNEL_CREATOR_ROLE_ID}> ou administradores podem pedir isso pelo FWP.` };
+  const me = guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.ManageChannels)) return { error: "o bot não tem permissão Gerenciar Canais." };
+  return { guild };
 }
 
 async function findOrCreateCategory(
@@ -126,9 +135,9 @@ function findChannel(guild: Guild, channelName?: string, channelId?: string) {
 }
 
 async function executeCreateCategory(message: Message, action: Extract<FwpAction, { type: "create_category" }>): Promise<string> {
-  const denied = await ensureCanManageChannels(message);
-  if (denied) return `Não criei categoria: ${denied}`;
-  const guild = message.guild!;
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não criei categoria: ${check.error}`;
+  const guild = check.guild;
   const category = await findOrCreateCategory(
     guild,
     action.name || "Nova Categoria",
@@ -149,9 +158,9 @@ async function executeCreateCategory(message: Message, action: Extract<FwpAction
 }
 
 async function executeCreateChannel(message: Message, action: Extract<FwpAction, { type: "create_channel" }>): Promise<string> {
-  const denied = await ensureCanManageChannels(message);
-  if (denied) return `Não criei canal: ${denied}`;
-  const guild = message.guild!;
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não criei canal: ${check.error}`;
+  const guild = check.guild;
 
   const name = normalizeChannelName(action.name || "novo-canal");
   const kind = action.kind || "text";
@@ -185,9 +194,9 @@ async function executeCreateChannel(message: Message, action: Extract<FwpAction,
 }
 
 async function executeMoveChannel(message: Message, action: Extract<FwpAction, { type: "move_channel" }>): Promise<string> {
-  const denied = await ensureCanManageChannels(message);
-  if (denied) return `Não organizei canal: ${denied}`;
-  const guild = message.guild!;
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não organizei canal: ${check.error}`;
+  const guild = check.guild;
   const channel = findChannel(guild, action.channel, action.channelId);
   if (!channel) return `Não organizei canal: não encontrei \`${action.channelId || action.channel || "canal"}\`.`;
   if (channel.type === ChannelType.GuildCategory) return "Não organizei canal: categorias não podem ficar dentro de outra categoria.";
@@ -216,17 +225,18 @@ async function executeMoveChannel(message: Message, action: Extract<FwpAction, {
 }
 
 function canModerate(message: Message): boolean {
+  if (message.author.id === BOT_OWNER_ID) return true;
   const author = message.member;
   if (!author) return false;
-  if (message.author.id === BOT_OWNER_ID) return true;
   return author.permissions.has(PermissionsBitField.Flags.BanMembers);
 }
 
 async function executeBanMember(message: Message, action: Extract<FwpAction, { type: "ban_member" }>): Promise<string> {
-  if (!message.guild) return "Não executei ban: mensagem fora de servidor.";
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não executei ban: nenhum servidor encontrado.";
   if (!canModerate(message)) return "Não executei ban: sem permissão. Só o dono ou admins podem pedir isso.";
 
-  const me = message.guild.members.me;
+  const me = guild.members.me;
   if (!me?.permissions.has(PermissionsBitField.Flags.BanMembers)) return "Não executei ban: o bot não tem permissão de banir membros.";
 
   const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
@@ -234,10 +244,10 @@ async function executeBanMember(message: Message, action: Extract<FwpAction, { t
   if (!targetId) return "Não executei ban: nenhum usuário mencionado ou ID informado.";
 
   try {
-    const target = await message.guild.members.fetch(targetId).catch(() => null);
+    const target = await guild.members.fetch(targetId).catch(() => null);
     const tag = target?.user.tag ?? targetId;
 
-    await message.guild.bans.create(targetId, {
+    await guild.bans.create(targetId, {
       reason: action.reason || `Banido via FWP por ${message.author.tag}`
     });
 
@@ -255,10 +265,11 @@ async function executeBanMember(message: Message, action: Extract<FwpAction, { t
 }
 
 async function executeKickMember(message: Message, action: Extract<FwpAction, { type: "kick_member" }>): Promise<string> {
-  if (!message.guild) return "Não executei kick: mensagem fora de servidor.";
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não executei kick: nenhum servidor encontrado.";
   if (!canModerate(message)) return "Não executei kick: sem permissão. Só o dono ou admins podem pedir isso.";
 
-  const me = message.guild.members.me;
+  const me = guild.members.me;
   if (!me?.permissions.has(PermissionsBitField.Flags.KickMembers)) return "Não executei kick: o bot não tem permissão de expulsar membros.";
 
   const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
@@ -266,7 +277,7 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
   if (!targetId) return "Não executei kick: nenhum usuário mencionado ou ID informado.";
 
   try {
-    const target = await message.guild.members.fetch(targetId).catch(() => null);
+    const target = await guild.members.fetch(targetId).catch(() => null);
     if (!target) return `Não executei kick: usuário \`${targetId}\` não encontrado no servidor.`;
 
     const tag = target.user.tag;
@@ -292,12 +303,12 @@ async function executeReadSourceFile(
 ): Promise<string> {
   if (!action.path?.trim()) return "Nenhum caminho especificado para leitura.";
   try {
-    const content = await readSourceFile(action.path.trim());
-    const preview = content.length > 8000 ? content.slice(0, 8000) + "\n...[truncado]" : content;
-    const summary = `[LEITURA DE ARQUIVO: ${action.path}]\n${preview}`;
-    await recordMessageEvent("system", message, summary, { action: "read_source_file", path: action.path });
+    const content = await readSourceFile(action.path.trim(), action.fromLine, action.toLine);
+    const summary = `[LEITURA DE ARQUIVO: ${action.path}]\n${content.slice(0, 200)}...`;
+    await recordMessageEvent("system", message, summary, { action: "read_source_file", path: action.path, fromLine: action.fromLine, toLine: action.toLine });
     pendingReads.push({ path: action.path.trim(), content });
-    return `Arquivo \`${action.path}\` lido (${content.length} chars). Conteúdo injetado na próxima passada de raciocínio — você poderá escrever o arquivo modificado imediatamente.`;
+    const rangeNote = action.fromLine ? ` (linhas ${action.fromLine}–${action.toLine ?? "fim"})` : "";
+    return `Arquivo \`${action.path}\`${rangeNote} lido (${content.length} chars). Conteúdo injetado na próxima passada de raciocínio — você poderá escrever o arquivo modificado imediatamente.`;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return `Erro ao ler \`${action.path}\`: ${msg}`;
@@ -380,10 +391,11 @@ async function executeListSourceFiles(message: Message, action: Extract<FwpActio
 }
 
 async function executeMuteMember(message: Message, action: Extract<FwpAction, { type: "mute_member" }>): Promise<string> {
-  if (!message.guild) return "Não executei mute: mensagem fora de servidor.";
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não executei mute: nenhum servidor encontrado.";
   if (!canModerate(message)) return "Não executei mute: sem permissão. Só o dono ou admins podem pedir isso.";
 
-  const me = message.guild.members.me;
+  const me = guild.members.me;
   if (!me?.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return "Não executei mute: o bot não tem permissão de silenciar membros.";
 
   const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
@@ -393,7 +405,7 @@ async function executeMuteMember(message: Message, action: Extract<FwpAction, { 
   const durationMs = Math.min(Math.max((action.durationMinutes ?? 10) * 60 * 1000, 60000), 40320 * 60 * 1000);
 
   try {
-    const target = await message.guild.members.fetch(targetId).catch(() => null);
+    const target = await guild.members.fetch(targetId).catch(() => null);
     if (!target) return `Não executei mute: usuário \`${targetId}\` não encontrado.`;
 
     await target.timeout(durationMs, action.reason || `Silenciado via FWP por ${message.author.tag}`);
@@ -416,7 +428,8 @@ async function executeRestartSelf(message: Message, action: Extract<FwpAction, {
 }
 
 async function executeSendMessage(message: Message, action: Extract<FwpAction, { type: "send_message" }>): Promise<string> {
-  if (!message.guild) return "Não enviei mensagem: fora de servidor.";
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não enviei mensagem: nenhum servidor encontrado.";
   if (!canModerate(message)) return "Não enviei mensagem: sem permissão. Só o dono ou admins podem usar isso.";
 
   const content = action.content?.trim();
@@ -425,10 +438,10 @@ async function executeSendMessage(message: Message, action: Extract<FwpAction, {
   let targetChannel: import("discord.js").GuildBasedChannel | null | undefined = null;
 
   if (action.channelId) {
-    targetChannel = message.guild.channels.cache.get(action.channelId) ?? null;
+    targetChannel = guild.channels.cache.get(action.channelId) ?? null;
   } else if (action.channel) {
     const wanted = comparableName(action.channel);
-    targetChannel = message.guild.channels.cache.find(c => comparableName(c.name) === wanted) ?? null;
+    targetChannel = guild.channels.cache.find(c => comparableName(c.name) === wanted) ?? null;
   }
 
   if (!targetChannel) return `Canal não encontrado: \`${action.channelId || action.channel || "não especificado"}\`.`;
@@ -562,8 +575,14 @@ export async function executeFwpActions(message: Message, response: string): Pro
       reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "erro desconhecido";
-      reports.push(`Ação FWP falhou: ${msg}`);
-      await recordMessageEvent("ai_action", message, `Falha ao executar ação ${action.type}: ${msg}`, { action });
+      const stack = error instanceof Error ? error.stack?.slice(0, 500) : undefined;
+      reports.push(`Ação FWP falhou (${action.type}): ${msg}`);
+      await recordMessageEvent("ai_action", message, `Falha ao executar ação ${action.type}: ${msg}`, { action, stack }).catch(() => {});
+      await recordMemorialEvent({
+        type: "ai_action",
+        content: `[ERRO FWP] Ação "${action.type}" falhou: ${msg}`,
+        metadata: { action, error: msg, stack }
+      }).catch(() => {});
     }
   }
 
@@ -572,7 +591,7 @@ export async function executeFwpActions(message: Message, response: string): Pro
 
 export function buildFileReadFollowUp(fileReads: FwpFileRead[]): string {
   const blocks = fileReads.map(({ path, content }) => {
-    const preview = content.length > 8000 ? content.slice(0, 8000) + "\n...[truncado por tamanho]" : content;
+    const preview = content.length > 40000 ? content.slice(0, 40000) + "\n...[arquivo muito grande — use fromLine/toLine para ler por partes]" : content;
     return `[CONTEÚDO DO ARQUIVO: ${path}]\n\`\`\`\n${preview}\n\`\`\``;
   });
   return [

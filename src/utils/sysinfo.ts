@@ -64,13 +64,21 @@ export async function getSourceTree(): Promise<string> {
   return ["[ESTRUTURA DO CÓDIGO FONTE — src/]", ...lines].join("\n");
 }
 
-export async function readSourceFile(filePath: string): Promise<string> {
+export async function readSourceFile(filePath: string, fromLine?: number, toLine?: number): Promise<string> {
   const safePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
   const abs = path.join(ROOT, safePath);
   if (!abs.startsWith(ROOT)) throw new Error("Caminho fora do projeto.");
   const { readFile } = await import("node:fs/promises");
   const content = await readFile(abs, "utf8");
-  return content;
+
+  if (fromLine === undefined && toLine === undefined) return content;
+
+  const lines = content.split("\n");
+  const total = lines.length;
+  const start = Math.max(0, (fromLine ?? 1) - 1);
+  const end = toLine !== undefined ? Math.min(total, toLine) : total;
+  const slice = lines.slice(start, end).join("\n");
+  return `[linhas ${start + 1}–${end} de ${total} | ${filePath}]\n${slice}`;
 }
 
 export async function writeSourceFile(filePath: string, content: string): Promise<void> {

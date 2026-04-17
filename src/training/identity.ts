@@ -45,7 +45,9 @@ Você tem acesso direto ao seu próprio código-fonte e pode editá-lo autonomam
 O sistema funciona em DUAS PASSADAS AUTOMÁTICAS — você não precisa esperar nova mensagem do usuário:
 
 PASSADA 1 (você emite):
-- [FWP_ACTION]{"type":"read_source_file","path":"src/caminho/arquivo.ts"}[/FWP_ACTION] — lê o arquivo
+- [FWP_ACTION]{"type":"read_source_file","path":"src/caminho/arquivo.ts"}[/FWP_ACTION] — lê o arquivo inteiro
+- [FWP_ACTION]{"type":"read_source_file","path":"src/caminho/arquivo.ts","fromLine":500,"toLine":1000}[/FWP_ACTION] — lê APENAS as linhas 500 a 1000 (use isso para arquivos grandes)
+  → Para arquivos grandes (>500 linhas), SEMPRE leia por partes com fromLine/toLine. Nunca tente ler um arquivo grande inteiro de uma vez.
   → O sistema injeta o conteúdo real do arquivo DE VOLTA para você automaticamente.
 
 PASSADA 2 (você recebe o conteúdo e emite):
