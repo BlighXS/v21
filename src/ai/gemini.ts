@@ -15,14 +15,6 @@ function collectKeys(): Array<{ key: string; slot: string }> {
     entries.push({ key: `replit::${replitKey}::${replitBase}`, slot: "replit-integration" });
   }
 
-  const base = process.env.GEMINI_API_KEY?.trim();
-  if (base) entries.push({ key: base, slot: "key_1" });
-
-  for (let i = 2; i <= 20; i++) {
-    const k = process.env[`GEMINI_API_KEY_${i}`]?.trim();
-    if (k) entries.push({ key: k, slot: `key_${i}` });
-  }
-
   return entries;
 }
 
