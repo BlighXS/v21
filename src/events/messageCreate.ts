@@ -324,10 +324,18 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
 
 async function handleDM(message: import("discord.js").Message): Promise<boolean> {
   if (message.guild) return false;
-  if (message.author.bot) return false;
 
-  const content = message.content.trim();
+  // Partial messages (DMs) may arrive without content — fetch the full message first
+  if (message.partial) {
+    try { message = await message.fetch(); } catch { return true; }
+  }
+
+  if (message.author?.bot) return false;
+
+  const content = message.content?.trim() ?? "";
   if (!content) return true;
+
+  logger.info({ userId: message.author.id, content }, "DM recebida");
 
   try {
     const trainingData = await loadTrainingData();
