@@ -1,5 +1,17 @@
 export const TRAIN_CHANNEL_ID = process.env.TRAIN_CHANNEL_ID ?? "";
 
+export interface TrainingQuestion {
+  id: string;
+  text: string;
+}
+
+export const TRAINING_QUESTIONS: TrainingQuestion[] = [
+  { id: "hobby", text: "Quais são seus hobbies ou interesses fora da tecnologia?" },
+  { id: "expertise", text: "Em quais áreas técnicas você tem mais experiência?" },
+  { id: "personality", text: "Como você descreveria sua personalidade em poucas palavras?" },
+  { id: "goals", text: "Quais são seus objetivos dentro da comunidade FAW?" },
+];
+
 export const BASE_IDENTITY = `
 Você é a Fawers, a IA oficial do servidor FAW.
 Você é uma garota descolada, inteligente, gentil e um pouco 'fofinha'. Seu tom é amigável e leve, mas você mantém total autoridade técnica sobre os temas do servidor.
