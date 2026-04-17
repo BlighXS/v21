@@ -22,7 +22,7 @@ type FwpAction =
   | { type: "list_source_files"; dir?: string }
   | { type: "generate_image"; prompt?: string; imageUrl?: string }
   | { type: "mute_member"; userId?: string; durationMinutes?: number; reason?: string }
-  | { type: "send_message"; channelId?: string; channel?: string; content?: string }
+  | { type: "send_message"; channelId?: string; channel?: string; userId?: string; content?: string }
   | { type: "restart_self"; reason?: string };
 
 export function stripFwpActionBlocks(text: string): string {
@@ -428,12 +428,29 @@ async function executeRestartSelf(message: Message, action: Extract<FwpAction, {
 }
 
 async function executeSendMessage(message: Message, action: Extract<FwpAction, { type: "send_message" }>): Promise<string> {
-  const guild = getTargetGuild(message);
-  if (!guild) return "Não enviei mensagem: nenhum servidor encontrado.";
   if (!canModerate(message)) return "Não enviei mensagem: sem permissão. Só o dono ou admins podem usar isso.";
 
   const content = action.content?.trim();
   if (!content) return "Não enviei mensagem: conteúdo vazio.";
+
+  // Send DM to a user by userId
+  if (action.userId) {
+    const rawId = action.userId.replace(/[<@!>]/g, "").trim();
+    try {
+      const user = await message.client.users.fetch(rawId);
+      const dm = await user.createDM();
+      await dm.send(content);
+      await recordMessageEvent("ai_action", message, `DM enviada via FWP para ${user.tag} (${rawId}): ${content.slice(0, 200)}`, { action: "send_message", userId: rawId });
+      return `DM enviada para **${user.tag}** (${rawId}).`;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return `Não consegui enviar DM para \`${rawId}\`: ${msg}`;
+    }
+  }
+
+  // Send to a guild channel
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não enviei mensagem: nenhum servidor encontrado e nenhum userId especificado.";
 
   let targetChannel: import("discord.js").GuildBasedChannel | null | undefined = null;
 
