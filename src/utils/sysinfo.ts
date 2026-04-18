@@ -1,15 +1,16 @@
 import os from "node:os";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { logger } from "./logger.js";
 
 const ROOT = process.cwd();
+const MAX_FILE_SIZE = 1024 * 1024 * 2; // 2MB
+const MAX_LINES = 5000;
 
 export function getSystemInfo(): string {
   const totalMB = Math.round(os.totalmem() / 1024 / 1024);
   const freeMB = Math.round(os.freemem() / 1024 / 1024);
   const usedMB = totalMB - freeMB;
-  const uptimeSec = Math.floor(os.uptime());
-  const procUptimeSec = Math.floor(process.uptime());
 
   const fmtUptime = (s: number) => {
     const h = Math.floor(s / 3600);
@@ -25,36 +26,66 @@ export function getSystemInfo(): string {
     `CPUs: ${os.cpus().length}x ${os.cpus()[0]?.model ?? "desconhecido"}`,
     `GPU: NVIDIA RTX A6000 (48 GB VRAM) — placa dedicada de alto desempenho`,
     `RAM total: ${totalMB} MB | usada: ${usedMB} MB | livre: ${freeMB} MB`,
-    `Uptime do sistema: ${fmtUptime(uptimeSec)}`,
-    `Uptime do processo (bot): ${fmtUptime(procUptimeSec)}`,
+    `Uptime do sistema: ${fmtUptime(os.uptime())}`,
+    `Uptime do processo (bot): ${fmtUptime(process.uptime())}`,
     `Node.js: ${process.version}`,
     `Diretório raiz: ${ROOT}`,
-    `PID: ${process.pid}`
+    `PID: ${process.pid}`,
   ].join("\n");
 }
 
-async function walkDir(dir: string, prefix = ""): Promise<string[]> {
+function resolveSafePath(inputPath: string): string {
+  const normalized = path.normalize(inputPath).replace(/^(\.\.[/\\])+/, "");
+  const abs = path.join(ROOT, normalized);
+
+  if (!abs.startsWith(ROOT)) {
+    throw new Error("Caminho fora do projeto.");
+  }
+
+  return abs;
+}
+
+async function walkDir(dir: string, prefix = "", depth = 0): Promise<string[]> {
+  if (depth > 6) return []; // limite de profundidade
+
   const lines: string[] = [];
+
   let entries: string[] = [];
   try {
     entries = await readdir(dir);
   } catch {
     return lines;
   }
+
   entries.sort();
+
   for (const entry of entries) {
-    if (entry.startsWith(".") || entry === "node_modules" || entry === "dist" || entry === "__pycache__") continue;
+    if (
+      entry.startsWith(".") ||
+      entry === "node_modules" ||
+      entry === "dist" ||
+      entry === "__pycache__"
+    )
+      continue;
+
     const full = path.join(dir, entry);
+
     let s;
-    try { s = await stat(full); } catch { continue; }
+    try {
+      s = await stat(full);
+    } catch {
+      continue;
+    }
+
     if (s.isDirectory()) {
       lines.push(`${prefix}${entry}/`);
-      const sub = await walkDir(full, `${prefix}  `);
+      const sub = await walkDir(full, `${prefix}  `, depth + 1);
       lines.push(...sub);
     } else {
       lines.push(`${prefix}${entry}`);
     }
   }
+
   return lines;
 }
 
@@ -64,34 +95,70 @@ export async function getSourceTree(): Promise<string> {
   return ["[ESTRUTURA DO CÓDIGO FONTE — src/]", ...lines].join("\n");
 }
 
-export async function readSourceFile(filePath: string, fromLine?: number, toLine?: number): Promise<string> {
-  const safePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
-  const abs = path.join(ROOT, safePath);
-  if (!abs.startsWith(ROOT)) throw new Error("Caminho fora do projeto.");
-  const { readFile } = await import("node:fs/promises");
+export async function readSourceFile(
+  filePath: string,
+  fromLine?: number,
+  toLine?: number,
+): Promise<string> {
+  const abs = resolveSafePath(filePath);
+
+  const { readFile, stat } = await import("node:fs/promises");
+
+  const fileStat = await stat(abs);
+
+  if (fileStat.size > MAX_FILE_SIZE) {
+    throw new Error("Arquivo muito grande para leitura.");
+  }
+
   const content = await readFile(abs, "utf8");
 
-  if (fromLine === undefined && toLine === undefined) return content;
+  if (fromLine === undefined && toLine === undefined) {
+    return content.slice(0, MAX_FILE_SIZE);
+  }
 
   const lines = content.split("\n");
   const total = lines.length;
+
   const start = Math.max(0, (fromLine ?? 1) - 1);
   const end = toLine !== undefined ? Math.min(total, toLine) : total;
+
+  if (end - start > MAX_LINES) {
+    throw new Error("Intervalo de linhas muito grande.");
+  }
+
   const slice = lines.slice(start, end).join("\n");
+
   return `[linhas ${start + 1}–${end} de ${total} | ${filePath}]\n${slice}`;
 }
 
-export async function writeSourceFile(filePath: string, content: string): Promise<void> {
-  const safePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, "");
-  const abs = path.join(ROOT, safePath);
-  if (!abs.startsWith(ROOT)) throw new Error("Caminho fora do projeto.");
+export async function writeSourceFile(
+  filePath: string,
+  content: string,
+): Promise<void> {
+  const abs = resolveSafePath(filePath);
+
+  if (content.length > MAX_FILE_SIZE) {
+    throw new Error("Conteúdo muito grande.");
+  }
+
+  // bloqueio básico de arquivos críticos
+  if (
+    abs.includes("node_modules") ||
+    abs.includes(".env") ||
+    abs.includes("package.json")
+  ) {
+    throw new Error("Escrita em arquivo restrito.");
+  }
+
   const { writeFile, mkdir } = await import("node:fs/promises");
+
   await mkdir(path.dirname(abs), { recursive: true });
   await writeFile(abs, content, "utf8");
+
+  logger.warn({ filePath }, "Arquivo modificado pela IA");
 }
 
 export async function listSourceFiles(dir = "src"): Promise<string[]> {
-  const target = path.join(ROOT, dir);
-  const lines = await walkDir(target);
-  return lines;
+  const target = resolveSafePath(dir);
+  return walkDir(target);
 }

@@ -4,191 +4,222 @@ import { handleTrainerButton } from "../training/trainer.js";
 import { handleServerSetupButton } from "../setup/serverSetup.js";
 import { handleBackupButton, handleBackupSelect } from "../backup/backup.js";
 import { isAdmin } from "../utils/permissions.js";
-import { config } from "../utils/config.js";
 import { sendToLogChannel } from "../utils/logChannel.js";
 import { setProvider, type AIProvider } from "../ai/providerConfig.js";
 import { isFreeModeOwner } from "../ai/freeMode.js";
 import { setPersonalityMode, type PersonalityMode } from "../ai/modeConfig.js";
 import { buildEmbed } from "../utils/format.js";
-import { getPendingWrite, deletePendingWrite, isExpired } from "../ai/pendingWrites.js";
+import {
+  getPendingWrite,
+  deletePendingWrite,
+  isExpired,
+} from "../ai/pendingWrites.js";
 import { writeSourceFile } from "../utils/sysinfo.js";
 import { recordMemorialEvent } from "../ai/memorial.js";
 
+const SAFE_REPLY = async (interaction: any, payload: any) => {
+  try {
+    if (interaction.deferred || interaction.replied) {
+      return await interaction.followUp(payload);
+    }
+    return await interaction.reply(payload);
+  } catch {
+    // evita crash por interação expirada
+  }
+};
+
+async function handleWriteFlow(interaction: any) {
+  const id = interaction.customId;
+  if (!id.startsWith("fwp_write_")) return false;
+
+  const isConfirm = id.includes("confirm");
+  const pwId = id.split("_").pop();
+  const pw = pwId ? getPendingWrite(pwId) : null;
+
+  if (!pw) {
+    await SAFE_REPLY(interaction, { content: "Expirado.", ephemeral: true });
+    return true;
+  }
+
+  if (interaction.user.id !== pw.requestedBy) {
+    await SAFE_REPLY(interaction, {
+      content: "Sem permissão.",
+      ephemeral: true,
+    });
+    return true;
+  }
+
+  if (isExpired(pw)) {
+    deletePendingWrite(pwId!);
+    await SAFE_REPLY(interaction, {
+      content: "Tempo expirado.",
+      ephemeral: true,
+    });
+    return true;
+  }
+
+  deletePendingWrite(pwId!);
+
+  if (!isConfirm) {
+    await SAFE_REPLY(interaction, { content: "Cancelado.", ephemeral: true });
+    logger.info({ path: pw.path }, "Write cancelado");
+    return true;
+  }
+
+  try {
+    await writeSourceFile(pw.path, pw.newContent);
+
+    logger.info(
+      {
+        path: pw.path,
+        added: pw.addedLines,
+        removed: pw.removedLines,
+      },
+      "Write aplicado",
+    );
+
+    await SAFE_REPLY(interaction, {
+      content: `✅ ${pw.path} atualizado. Reiniciando...`,
+      ephemeral: true,
+    });
+
+    setTimeout(async () => {
+      const { restartProcess } = await import("../utils/restart.js");
+      restartProcess();
+    }, 1500);
+  } catch (err) {
+    logger.error({ err }, "Erro write");
+    await SAFE_REPLY(interaction, {
+      content: "Erro ao escrever.",
+      ephemeral: true,
+    });
+  }
+
+  return true;
+}
+
+async function handleModelSwitch(interaction: any) {
+  if (!interaction.customId.startsWith("fwp_model_")) return false;
+
+  if (!isFreeModeOwner(interaction.user.id)) {
+    await SAFE_REPLY(interaction, {
+      content: "Sem permissão.",
+      ephemeral: true,
+    });
+    return true;
+  }
+
+  const map: Record<string, { key: AIProvider; label: string }> = {
+    beta: { key: "ollama", label: "Beta ativo" },
+    v2: { key: "gemini", label: "V2 ativa" },
+    v3: { key: "gemini-v3", label: "V3 ativa" },
+    v4: { key: "openai-v4", label: "V4 ativa" },
+    v5: { key: "deepseek-v5", label: "V5 ativa" },
+  };
+
+  const key = interaction.customId.split("_").pop();
+  const entry = key ? map[key] : null;
+  if (!entry) return false;
+
+  await setProvider(entry.key);
+
+  await SAFE_REPLY(interaction, {
+    embeds: [buildEmbed("IA atualizada", entry.label, "ok")],
+    ephemeral: true,
+  });
+
+  logger.info({ provider: entry.key }, "Provider trocado");
+  return true;
+}
+
+async function handleModeSwitch(interaction: any) {
+  if (!interaction.customId.startsWith("fwp_mode_")) return false;
+
+  if (!isFreeModeOwner(interaction.user.id)) {
+    await SAFE_REPLY(interaction, {
+      content: "Sem permissão.",
+      ephemeral: true,
+    });
+    return true;
+  }
+
+  const mode: PersonalityMode = interaction.customId.endsWith("gentil")
+    ? "gentil"
+    : "foco";
+
+  await setPersonalityMode(mode);
+
+  await SAFE_REPLY(interaction, {
+    embeds: [buildEmbed("Modo atualizado", mode, "ok")],
+    ephemeral: true,
+  });
+
+  logger.info({ mode }, "Modo trocado");
+  return true;
+}
+
 const event: BotEvent = {
   name: "interactionCreate",
+
   async execute(interaction) {
-    if (interaction.isButton()) {
-      if (interaction.customId.startsWith("fwp_write_confirm_") || interaction.customId.startsWith("fwp_write_cancel_")) {
-        const isConfirm = interaction.customId.startsWith("fwp_write_confirm_");
-        const pwId = interaction.customId.replace("fwp_write_confirm_", "").replace("fwp_write_cancel_", "");
-        const pw = getPendingWrite(pwId);
-
-        if (!pw) {
-          await interaction.reply({ content: "Esta confirmação já expirou ou foi processada.", ephemeral: true });
-          return;
-        }
-
-        if (interaction.user.id !== pw.requestedBy) {
-          await interaction.reply({ content: "Só quem solicitou essa alteração pode confirmar.", ephemeral: true });
-          return;
-        }
-
-        if (isExpired(pw)) {
-          deletePendingWrite(pwId);
-          await interaction.update({ content: `⏰ Confirmação de \`${pw.path}\` expirou. Peça pra Fawers gerar de novo.`, components: [] });
-          return;
-        }
-
-        deletePendingWrite(pwId);
-
-        if (!isConfirm) {
-          await interaction.update({ content: `❌ Escrita de \`${pw.path}\` **cancelada**.`, components: [] });
-          await recordMemorialEvent({ type: "system", content: `Escrita cancelada pelo dono: ${pw.path}` });
-          logger.info({ path: pw.path, userId: interaction.user.id }, "Escrita cancelada pelo usuário");
-          return;
-        }
-
-        try {
-          await writeSourceFile(pw.path, pw.newContent);
-          await recordMemorialEvent({
-            type: "system",
-            content: `Arquivo escrito e confirmado pelo dono: ${pw.path} (+${pw.addedLines}/-${pw.removedLines} linhas)`,
-            userId: interaction.user.id,
-            username: interaction.user.tag
-          });
-          logger.info({ path: pw.path, addedLines: pw.addedLines, removedLines: pw.removedLines }, "Escrita confirmada e aplicada");
-
-          const confirmText = [
-            `✅ \`${pw.path}\` escrito com sucesso.`,
-            `**+${pw.addedLines}** adicionadas | **-${pw.removedLines}** removidas`,
-            "",
-            "🔄 Reiniciando automaticamente em 2s para aplicar as mudanças..."
-          ].join("\n");
-
-          await interaction.update({ content: confirmText, components: [] });
-
-          setTimeout(async () => {
-            const { restartProcess } = await import("../utils/restart.js");
-            restartProcess();
-          }, 2000);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          await interaction.update({ content: `❌ Erro ao escrever \`${pw.path}\`: ${msg}`, components: [] });
-          logger.error({ err, path: pw.path }, "Erro ao aplicar escrita confirmada");
-        }
-        return;
-      }
-
-      if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2" || interaction.customId === "fwp_model_v3" || interaction.customId === "fwp_model_v4" || interaction.customId === "fwp_model_v5") {
-        if (!isFreeModeOwner(interaction.user.id)) {
-          await interaction.reply({ content: "Sem permissão.", ephemeral: true });
-          return;
-        }
-        let providerKey: string;
-        let label: string;
-        if (interaction.customId === "fwp_model_beta") {
-          providerKey = "ollama"; label = "Motor **Beta** selecionado e ativo.";
-        } else if (interaction.customId === "fwp_model_v2") {
-          providerKey = "gemini"; label = "**FAWER V2** selecionada e ativa.";
-        } else if (interaction.customId === "fwp_model_v3") {
-          providerKey = "gemini-v3"; label = "**FAWER V3** selecionada e ativa.";
-        } else if (interaction.customId === "fwp_model_v4") {
-          providerKey = "openai-v4"; label = "**FAWER V4** selecionada e ativa.";
-        } else {
-          providerKey = "deepseek-v5"; label = "**FAWER V5** selecionada e ativa.";
-        }
-        await setProvider(providerKey as AIProvider);
-        const embed = buildEmbed("✅ Setup — Fawers", label, "ok");
-        try {
-          await interaction.update({ embeds: [embed], components: [] });
-        } catch {
-          // Interação expirada — tenta responder como fallback
-          try { await interaction.reply({ embeds: [embed], ephemeral: true }); } catch { /* ignorar */ }
-        }
-        logger.info({ provider: providerKey, user: interaction.user.id }, "AI provider atualizado");
-        return;
-      }
-
-      if (interaction.customId === "fwp_mode_gentil" || interaction.customId === "fwp_mode_foco") {
-        if (!isFreeModeOwner(interaction.user.id)) {
-          await interaction.reply({ content: "Sem permissão.", ephemeral: true });
-          return;
-        }
-        const mode: PersonalityMode = interaction.customId === "fwp_mode_gentil" ? "gentil" : "foco";
-        await setPersonalityMode(mode);
-        const label = mode === "gentil"
-          ? "Modo **Gentil 🌸** ativado. A Fawers vai responder com o estilo caloroso de sempre."
-          : "Modo **Foco ⚡** ativado. A Fawers vai ser direta, técnica e sem rodeios.";
-        const embed = buildEmbed("Fawers — Modo atualizado", label, "ok");
-        try {
-          await interaction.update({ embeds: [embed], components: [] });
-        } catch {
-          try { await interaction.reply({ embeds: [embed], ephemeral: true }); } catch { /* ignorar */ }
-        }
-        logger.info({ mode, user: interaction.user.id }, "Modo de personalidade atualizado");
-        return;
-      }
-
-      const handled = await handleTrainerButton(interaction);
-      if (handled) return;
-      const handledSetup = await handleServerSetupButton(interaction);
-      if (handledSetup) return;
-      const handledBackup = await handleBackupButton(interaction);
-      if (handledBackup) return;
-    }
-
-    if (interaction.isStringSelectMenu()) {
-      const handledSelect = await handleBackupSelect(interaction);
-      if (handledSelect) return;
-    }
-
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = interaction.client.commands.get(interaction.commandName);
-    if (!command) return;
-
-    if (command.adminOnly && !isAdmin(interaction)) {
-      const { buildEmbed } = await import("../utils/format.js");
-      const embed = buildEmbed("Acesso negado", "Voc\u00ea n\u00e3o tem permiss\u00e3o para usar este comando.", "warn");
-      await interaction.reply({ embeds: [embed], ephemeral: true });
-      return;
-    }
-
     try {
+      // ================= BUTTONS =================
+      if (interaction.isButton()) {
+        if (await handleWriteFlow(interaction)) return;
+        if (await handleModelSwitch(interaction)) return;
+        if (await handleModeSwitch(interaction)) return;
+
+        if (await handleTrainerButton(interaction)) return;
+        if (await handleServerSetupButton(interaction)) return;
+        if (await handleBackupButton(interaction)) return;
+      }
+
+      // ================= SELECT =================
+      if (interaction.isStringSelectMenu()) {
+        if (await handleBackupSelect(interaction)) return;
+      }
+
+      // ================= SLASH =================
+      if (!interaction.isChatInputCommand()) return;
+
+      const command = interaction.client.commands.get(interaction.commandName);
+      if (!command) return;
+
+      if (command.adminOnly && !isAdmin(interaction)) {
+        await SAFE_REPLY(interaction, {
+          embeds: [buildEmbed("Acesso negado", "Sem permissão.", "warn")],
+          ephemeral: true,
+        });
+        return;
+      }
+
       const start = Date.now();
+
       await command.execute(interaction);
-      const durationMs = Date.now() - start;
-      logger.info({
-        type: "slash",
-        command: interaction.commandName,
-        userId: interaction.user.id,
-        channelId: interaction.channelId,
-        guildId: interaction.guildId,
-        durationMs
-      }, "Comando executado");
+
+      logger.info(
+        {
+          command: interaction.commandName,
+          duration: Date.now() - start,
+        },
+        "Slash executado",
+      );
     } catch (error) {
-      logger.error({ error, command: interaction.commandName }, "Erro no comando");
+      logger.error({ error }, "Erro interactionCreate");
 
-      const { buildEmbed } = await import("../utils/format.js");
-      const errMsg = error instanceof Error ? error.message : "Erro desconhecido";
-      const embed = buildEmbed("Erro", "Ocorreu um erro ao executar o comando.", "error");
-
-      try {
-        if (interaction.deferred || interaction.replied) {
-          await interaction.followUp({ embeds: [embed], ephemeral: true });
-        } else {
-          await interaction.reply({ embeds: [embed], ephemeral: true });
-        }
-      } catch { /* falha ao responder */ }
+      await SAFE_REPLY(interaction, {
+        embeds: [buildEmbed("Erro", "Falha ao executar.", "error")],
+        ephemeral: true,
+      });
 
       await sendToLogChannel(
         interaction.client,
-        "Erro em Comando",
-        `Comando: \`${interaction.commandName}\`\nUsu\u00e1rio: ${interaction.user.tag} (${interaction.user.id})\nErro: ${errMsg}`,
-        "error"
+        "Erro",
+        `Erro em interação: ${interaction.user?.tag}`,
+        "error",
       );
     }
-  }
+  },
 };
 
 export default event;

@@ -5,21 +5,37 @@ import { sendToLogChannel } from "../utils/logChannel.js";
 
 const event: BotEvent = {
   name: "guildMemberRemove",
+
   async execute(member: GuildMember | PartialGuildMember) {
-    const guild = member.guild;
-    const user = member.user;
-    if (!user) return;
+    try {
+      const guild = member.guild;
+      const user = member.user;
 
-    const memberCount = guild.memberCount;
-    logger.info({ guildId: guild.id, userId: user.id, tag: user.tag }, "Membro saiu do servidor");
+      if (!user) {
+        logger.warn(
+          { guildId: guild.id },
+          "guildMemberRemove sem user (partial inválido)",
+        );
+        return;
+      }
 
-    await sendToLogChannel(
-      member.client,
-      "Membro saiu",
-      `**${user.tag}** (${user.id}) saiu do servidor **${guild.name}**. Total: ${memberCount}`,
-      "warn"
-    );
-  }
+      const memberCount = guild.memberCount;
+
+      logger.info(
+        { guildId: guild.id, userId: user.id, tag: user.tag },
+        "Membro saiu do servidor",
+      );
+
+      await sendToLogChannel(
+        member.client,
+        "Membro saiu",
+        `**${user.tag}** (${user.id}) saiu do servidor **${guild.name}**. Total: ${memberCount}`,
+        "warn",
+      );
+    } catch (error) {
+      logger.error({ error }, "Erro em guildMemberRemove");
+    }
+  },
 };
 
 export default event;

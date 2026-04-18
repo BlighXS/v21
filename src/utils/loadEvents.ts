@@ -8,44 +8,85 @@ import { registerEvent } from "./events.js";
 
 export async function loadEvents(client: Client) {
   const eventsPath = path.join(process.cwd(), "src", "events");
-  const files = await walk(eventsPath);
-  const eventFiles = files.filter((f) => f.endsWith(".ts") || f.endsWith(".js"));
+
+  let files: string[] = [];
+  try {
+    files = await walk(eventsPath);
+  } catch (err) {
+    logger.error({ err }, "Erro ao ler pasta de eventos");
+    return;
+  }
+
+  const eventFiles = files.filter(
+    (f) => (f.endsWith(".js") || f.endsWith(".ts")) && !f.endsWith(".d.ts"),
+  );
 
   const registeredCounts: Record<string, number> = {};
 
   for (const file of eventFiles) {
-    const mod = await import(pathToFileURL(file).toString());
+    try {
+      const mod = await import(pathToFileURL(file).toString());
 
-    const raw = mod.default;
-    if (!raw) {
-      logger.warn({ file }, "Event file missing default export, skipping");
-      continue;
-    }
-
-    const events: BotEvent[] = Array.isArray(raw) ? raw : [raw];
-
-    for (const event of events) {
-      if (!event || typeof event.name !== "string" || typeof event.execute !== "function") {
-        logger.warn({ file }, "Invalid event shape, skipping entry");
+      const raw = mod.default;
+      if (!raw) {
+        logger.warn({ file }, "Event sem export default");
         continue;
       }
-      registerEvent(client, event);
-      registeredCounts[event.name] = (registeredCounts[event.name] ?? 0) + 1;
+
+      const events: BotEvent[] = Array.isArray(raw) ? raw : [raw];
+
+      for (const event of events) {
+        if (
+          !event ||
+          typeof event.name !== "string" ||
+          typeof event.execute !== "function"
+        ) {
+          logger.warn({ file }, "Evento inválido");
+          continue;
+        }
+
+        registerEvent(client, event);
+        registeredCounts[event.name] = (registeredCounts[event.name] ?? 0) + 1;
+      }
+    } catch (err) {
+      logger.error({ err, file }, "Erro ao carregar evento");
     }
   }
 
-  const totalHandlers = Object.values(registeredCounts).reduce((a, b) => a + b, 0);
-  logger.info({ count: eventFiles.length, handlers: totalHandlers, breakdown: registeredCounts }, "Loaded events");
+  const totalHandlers = Object.values(registeredCounts).reduce(
+    (a, b) => a + b,
+    0,
+  );
+
+  logger.info(
+    {
+      files: eventFiles.length,
+      handlers: totalHandlers,
+      breakdown: registeredCounts,
+    },
+    "Eventos carregados",
+  );
 }
 
+// ================= WALK =================
+
 async function walk(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true });
+  let entries;
+
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    logger.error({ err, dir }, "Erro ao ler diretório");
+    return [];
+  }
+
   const files: string[] = [];
 
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
+
     if (entry.isDirectory()) {
-      files.push(...await walk(full));
+      files.push(...(await walk(full)));
     } else {
       files.push(full);
     }

@@ -24,6 +24,10 @@ export interface SpotifyTrack {
 }
 
 let cachedToken: SpotifyToken | null = null;
+let tokenPromise: Promise<SpotifyToken> | null = null;
+
+const REQUEST_TIMEOUT = 10_000;
+const MAX_QUERY_LENGTH = 120;
 
 function hasSpotifyConfig(): boolean {
   return Boolean(config.SPOTIFY_CLIENT_ID && config.SPOTIFY_CLIENT_SECRET);
@@ -33,60 +37,101 @@ function encodeBasicAuth(clientId: string, clientSecret: string): string {
   return Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function requestToken(): Promise<SpotifyToken> {
-  const auth = encodeBasicAuth(config.SPOTIFY_CLIENT_ID, config.SPOTIFY_CLIENT_SECRET);
-  const res = await fetch("https://accounts.spotify.com/api/token", {
+  const auth = encodeBasicAuth(
+    config.SPOTIFY_CLIENT_ID,
+    config.SPOTIFY_CLIENT_SECRET,
+  );
+
+  const res = await fetchWithTimeout("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
       Authorization: `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded"
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: "grant_type=client_credentials"
+    body: "grant_type=client_credentials",
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Spotify token error: ${res.status} ${text}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`Spotify token error: ${res.status}`);
   }
 
-  const data = await res.json() as { access_token: string; expires_in: number };
+  const data = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
+
   return {
     accessToken: data.access_token,
-    expiresAt: Date.now() + (data.expires_in * 1000) - 30_000
+    expiresAt: Date.now() + data.expires_in * 1000 - 30_000,
   };
 }
 
 async function getToken(): Promise<string> {
   if (!hasSpotifyConfig()) {
-    throw new Error("Spotify API nao configurada. Defina SPOTIFY_CLIENT_ID e SPOTIFY_CLIENT_SECRET.");
+    throw new Error("Spotify API nao configurada.");
   }
 
-  if (!cachedToken || cachedToken.expiresAt <= Date.now()) {
-    cachedToken = await requestToken();
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.accessToken;
   }
 
+  // evita múltiplos requests simultâneos
+  if (!tokenPromise) {
+    tokenPromise = requestToken().finally(() => {
+      tokenPromise = null;
+    });
+  }
+
+  cachedToken = await tokenPromise;
   return cachedToken.accessToken;
 }
 
-export async function searchTracks(query: string, limit = 5): Promise<SpotifyTrack[]> {
+export async function searchTracks(
+  query: string,
+  limit = 5,
+): Promise<SpotifyTrack[]> {
+  const safeQuery = query.slice(0, MAX_QUERY_LENGTH);
+
   const token = await getToken();
-  const q = encodeURIComponent(query);
-  const res = await fetch(`https://api.spotify.com/v1/search?type=track&limit=${limit}&q=${q}`, {
+
+  const url = `https://api.spotify.com/v1/search?type=track&limit=${limit}&q=${encodeURIComponent(
+    safeQuery,
+  )}`;
+
+  const res = await fetchWithTimeout(url, {
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Spotify search error: ${res.status} ${text}`);
+    if (res.status === 401) {
+      // força refresh de token
+      cachedToken = null;
+    }
+
+    throw new Error(`Spotify search error: ${res.status}`);
   }
 
-  const data = await res.json() as any;
+  const data = (await res.json()) as any;
   const items = data?.tracks?.items ?? [];
 
-  return items.map((item: any) => {
+  return items.slice(0, limit).map((item: any) => {
     const images: SpotifyImage[] = item?.album?.images ?? [];
+
     return {
       id: item.id,
       name: item.name,
@@ -95,11 +140,13 @@ export async function searchTracks(query: string, limit = 5): Promise<SpotifyTra
       previewUrl: item.preview_url ?? null,
       externalUrl: item.external_urls?.spotify ?? "",
       image: images[0]?.url,
-      durationMs: item.duration_ms ?? 0
+      durationMs: item.duration_ms ?? 0,
     } as SpotifyTrack;
   });
 }
 
 export function trackFingerprint(track: SpotifyTrack): string {
-  return createHash("sha1").update(`${track.id}:${track.previewUrl ?? ""}`).digest("hex");
+  return createHash("sha1")
+    .update(`${track.id}:${track.previewUrl ?? ""}`)
+    .digest("hex");
 }
