@@ -8,13 +8,13 @@ const CLOUD_CHAIN: AIProvider[] = ["gemini-v3", "gemini", "openai-v4", "deepseek
 
 function isAvailable(provider: AIProvider): boolean {
   if (provider === "gemini" || provider === "gemini-v3") {
-    return !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim() && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL?.trim());
+    return true;
   }
   if (provider === "openai-v4") {
-    return !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY?.trim() && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL?.trim());
+    return true;
   }
   if (provider === "deepseek-v5") {
-    return !!(process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY?.trim() && process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL?.trim());
+    return true;
   }
   return false;
 }
