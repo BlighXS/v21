@@ -23,6 +23,7 @@ import { getProvider } from "../ai/providerConfig.js";
 import { getPersonalityMode, MODE_FOCO_SUFFIX } from "../ai/modeConfig.js";
 import { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { queryOpenAI } from "../ai/openai.js";
+import { queryDeepSeek } from "../ai/deepseek.js";
 import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks, buildFileReadFollowUp } from "../ai/actions.js";
 
@@ -109,6 +110,9 @@ async function queryOllama(
   }
   if (provider === "openai-v4") {
     return await queryOpenAI(systemPrompt, memoryKey, userQuery);
+  }
+  if (provider === "deepseek-v5") {
+    return await queryDeepSeek(systemPrompt, memoryKey, userQuery);
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
@@ -374,7 +378,8 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
         new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Motor Beta").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2 — Flash").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3 — Flash+").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("fwp_model_v5").setLabel("FAWER V5 — DeepSeek").setStyle(ButtonStyle.Primary)
       );
       const embed = buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info");
       await message.reply({ embeds: [embed], components: [row] });
@@ -784,7 +789,11 @@ const event: BotEvent = {
         new ButtonBuilder()
           .setCustomId("fwp_model_v4")
           .setLabel("FAWER V4 — Pro")
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId("fwp_model_v5")
+          .setLabel("FAWER V5 — DeepSeek")
+          .setStyle(ButtonStyle.Primary)
       );
 
       const embed = buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info");

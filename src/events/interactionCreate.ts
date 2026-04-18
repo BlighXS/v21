@@ -74,7 +74,7 @@ const event: BotEvent = {
         return;
       }
 
-      if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2" || interaction.customId === "fwp_model_v3" || interaction.customId === "fwp_model_v4") {
+      if (interaction.customId === "fwp_model_beta" || interaction.customId === "fwp_model_v2" || interaction.customId === "fwp_model_v3" || interaction.customId === "fwp_model_v4" || interaction.customId === "fwp_model_v5") {
         if (!isFreeModeOwner(interaction.user.id)) {
           await interaction.reply({ content: "Sem permissão.", ephemeral: true });
           return;
@@ -87,8 +87,10 @@ const event: BotEvent = {
           providerKey = "gemini"; label = "Modelo **FAWER V2 — Flash** selecionado e ativo.";
         } else if (interaction.customId === "fwp_model_v3") {
           providerKey = "gemini-v3"; label = "Modelo **FAWER V3 — Flash+** selecionado e ativo.";
-        } else {
+        } else if (interaction.customId === "fwp_model_v4") {
           providerKey = "openai-v4"; label = "Modelo **FAWER V4 — Pro** selecionado e ativo.";
+        } else {
+          providerKey = "deepseek-v5"; label = "Modelo **FAWER V5 — DeepSeek** selecionado e ativo.";
         }
         await setProvider(providerKey as AIProvider);
         const embed = buildEmbed("✅ Setup — Fawers", label, "ok");

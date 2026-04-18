@@ -18,9 +18,17 @@ Após fazer o remix deste projeto, o código já está pronto, mas você precisa
 
 ---
 
+## Integração DeepSeek — V5
+
+### Instrução para o agente de IA do Replit (DeepSeek)
+
+> "Configure a integração nativa do Replit com o DeepSeek. Chame `setupReplitAIIntegrations` com `providerSlug: 'deepseek'`, `providerUrlEnvVarName: 'AI_INTEGRATIONS_DEEPSEEK_BASE_URL'` e `providerApiKeyEnvVarName: 'AI_INTEGRATIONS_DEEPSEEK_API_KEY'`. Depois reinicie o bot."
+
+---
+
 ## O que cada integração faz
 
-- Não exige chave de API própria do Google ou OpenAI
+- Não exige chave de API própria do Google, OpenAI ou DeepSeek
 - O uso é cobrado nos créditos Replit da sua conta
 - As variáveis de ambiente são provisionadas automaticamente
 
@@ -34,6 +42,7 @@ Após fazer o remix deste projeto, o código já está pronto, mas você precisa
 | FAWER_V2.01 | `gemini-2.5-flash` (integração Gemini) | Créditos Replit |
 | FAWER Flash V3.0 | `gemini-3-flash-preview` (integração Gemini) | Créditos Replit |
 | FAWER V4 (ChatGPT) | `gpt-5.2` (integração OpenAI) | Créditos Replit |
+| FAWER V5 (DeepSeek) | `deepseek-chat` (integração DeepSeek) | Créditos Replit |
 
 ---
 
