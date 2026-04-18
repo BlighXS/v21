@@ -1,5 +1,5 @@
 type Status = "online" | "offline" | "loading";
-type SysStatus = { bot: Status; ollama: Status; gemini: Status; openai: Status; deepseek: Status; api: Status; };
+type SysStatus = { bot: Status; gemini: Status; openai: Status; deepseek: Status; api: Status; };
 
 interface Props {
   status: SysStatus;
@@ -90,7 +90,6 @@ export default function StatusGrid({ status }: Props) {
           <span className="tile-header-label" style={{ color: "var(--cyan-dim)" }}>AI_ENGINES</span>
           <span className="tile-id">#002</span>
         </div>
-        <StatusRow label="FAWER_BETA" value="llama3.2:1b" status={status.ollama} sub="local · CPU inference" />
         <StatusRow label="FAWER_V2" value="gemini-2.5-flash" status={status.gemini} sub="Google DeepMind" />
         <StatusRow label="FAWER_V3" value="gemini-3-flash-preview" status={status.gemini} sub="next-gen reasoning" />
         <StatusRow label="FAWER_V4" value="gpt-5.2" status={status.openai} sub="OpenAI · via Replit" />

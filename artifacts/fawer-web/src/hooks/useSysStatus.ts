@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 
 interface SysStatus {
   bot: "online" | "offline" | "loading";
-  ollama: "online" | "offline" | "loading";
   gemini: "online" | "offline" | "loading";
   openai: "online" | "offline" | "loading";
   deepseek: "online" | "offline" | "loading";
@@ -12,7 +11,6 @@ interface SysStatus {
 export function useSysStatus() {
   const [status, setStatus] = useState<SysStatus>({
     bot: "loading",
-    ollama: "loading",
     gemini: "loading",
     openai: "loading",
     deepseek: "loading",
@@ -33,7 +31,6 @@ export function useSysStatus() {
         setStatus({
           bot: "online",
           api: "online",
-          ollama: find("ollama"),
           gemini: find("gemini-v3"),
           openai: find("openai-v4"),
           deepseek: find("deepseek-v5"),

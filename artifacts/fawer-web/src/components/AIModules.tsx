@@ -11,16 +11,6 @@ interface Module {
 
 const MODULES: Module[] = [
   {
-    id: "FAW-BETA-001",
-    name: "FAWER Beta",
-    model: "llama3.2:1b",
-    provider: "Ollama · Local",
-    context: "128K tokens",
-    badge: "BETA",
-    color: "var(--text-dim)",
-    capabilities: ["Respostas rápidas", "Privado · sem cloud", "CPU inference", "Sempre disponível"],
-  },
-  {
     id: "FAW-V2-001",
     name: "FAWER V2",
     model: "gemini-2.5-flash",

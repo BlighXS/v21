@@ -10,14 +10,6 @@ router.get("/", (_req, res) => {
   res.json({
     models: [
       {
-        id: "ollama",
-        name: "FAWER Beta",
-        description: "Modelo local CPU — privado e rápido para tarefas simples",
-        icon: "🧠",
-        badge: "Beta",
-        available: true,
-      },
-      {
         id: "gemini",
         name: "FAWER V2",
         description: "Gemini 2.5 Flash — inteligência avançada do Google",
