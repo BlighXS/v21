@@ -14,7 +14,7 @@ Ambiente de configuração: variáveis lidas do arquivo `faw.env` na raiz (prior
 - **Discord SDK**: discord.js 14
 - **Dashboard web**: Express 4
 - **Logs**: Pino + pino-pretty
-- **IA**: OpenAI-compatible via `AI_INTEGRATIONS_OPENAI_BASE_URL` e `AI_INTEGRATIONS_OPENAI_API_KEY`
+- **IA**: Gemini, OpenAI e OpenRouter via integrações nativas do Replit
 - **Memória IA**: ledger interno em `data/memory/global_memorial.jsonl`, perfil em `data/memory/bot_profile.json` e histórico por usuário/canal em `data/memory/*.json`
 - **Música**: Spotify API (Client Credentials Flow), YouTube via `play-dl` e voz Discord via `@discordjs/voice`
 
@@ -147,6 +147,11 @@ BLOCK_PRIVATE_IPS=true
 OPENAI_MODEL=gpt-4o
 DATABASE_URL=
 AI_INTEGRATIONS_OPENAI_API_KEY=
+AI_INTEGRATIONS_OPENAI_BASE_URL=
+AI_INTEGRATIONS_GEMINI_BASE_URL=
+AI_INTEGRATIONS_GEMINI_API_KEY=
+AI_INTEGRATIONS_OPENROUTER_BASE_URL=
+AI_INTEGRATIONS_OPENROUTER_API_KEY=
 ```
 
 ## Intents Necessários no Portal do Discord
