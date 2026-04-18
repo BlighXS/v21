@@ -322,15 +322,6 @@ async function executeWriteSourceFile(message: Message, action: Extract<FwpActio
 
   const filePath = action.path.trim();
 
-  const PROTECTED_FILES = [
-    "src/index.ts",
-    "src/ai/actions.ts",
-    "src/ai/fallback.ts",
-  ];
-  if (PROTECTED_FILES.some((p) => filePath === p || filePath.replace(/\\/g, "/").endsWith("/" + p))) {
-    return `Arquivo protegido: \`${filePath}\` não pode ser modificado pela IA. Apenas o desenvolvedor pode alterar esse arquivo.`;
-  }
-
   let originalContent = "";
   try {
     originalContent = await readSourceFile(filePath);
