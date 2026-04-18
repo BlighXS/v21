@@ -71,6 +71,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
     const { loadTrainingData } = await import("./training/store.js");
     const { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
     const { queryOpenAI } = await import("./ai/openai.js");
+    const { queryDeepSeek } = await import("./ai/deepseek.js");
     const { getProvider } = await import("./ai/providerConfig.js");
     const { clearUserMemory } = await import("./ai/memory.js");
     const { buildEmbed, truncate } = await import("./utils/format.js");
@@ -95,7 +96,8 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
         new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Motor Beta").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2 — Flash").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3 — Flash+").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("fwp_model_v5").setLabel("FAWER V5 — DeepSeek").setStyle(ButtonStyle.Primary)
       );
       await ch.send({ embeds: [buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info")], components: [row] });
       return;
@@ -123,6 +125,8 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       let raw: string;
       if (provider === "openai-v4") {
         raw = await queryOpenAI(systemPrompt, memoryKey, contextualContent);
+      } else if (provider === "deepseek-v5") {
+        raw = await queryDeepSeek(systemPrompt, memoryKey, contextualContent);
       } else {
         raw = await queryGemini(systemPrompt, memoryKey, contextualContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : GEMINI_MODEL_V2);
       }
@@ -147,6 +151,8 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
             let followRaw: string;
             if (provider === "openai-v4") {
               followRaw = await queryOpenAI(systemPrompt, memoryKey, followUpQuery);
+            } else if (provider === "deepseek-v5") {
+              followRaw = await queryDeepSeek(systemPrompt, memoryKey, followUpQuery);
             } else {
               followRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : GEMINI_MODEL_V2);
             }
