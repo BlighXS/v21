@@ -8,7 +8,7 @@ export interface ChatMessage {
 }
 
 const MEMORY_DIR = path.join(process.cwd(), "data", "memory");
-const MAX_HISTORY = 300;
+const MAX_HISTORY = 24;
 
 export function resolveMemoryKey(userId: string): string {
   return userId;

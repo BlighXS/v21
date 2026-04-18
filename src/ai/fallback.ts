@@ -6,6 +6,11 @@ import { logger } from "../utils/logger.js";
 
 const CLOUD_CHAIN: AIProvider[] = ["deepseek-v5", "gemini-v3", "gemini", "openai-v4"];
 
+function isContextError(err: unknown): boolean {
+  const msg = String(err).toLowerCase();
+  return msg.includes("maximum context length") || msg.includes("context length") || msg.includes("requested about");
+}
+
 async function queryWithProvider(
   provider: AIProvider,
   systemPrompt: string,
@@ -49,6 +54,10 @@ export async function queryWithFallback(
       return result;
     } catch (err) {
       lastError = err;
+      if (provider === "deepseek-v5" && isContextError(err)) {
+        logger.warn({ provider, err: String(err) }, "Contexto muito grande no V5, pulando para o próximo");
+        continue;
+      }
       logger.warn({ provider, err: String(err) }, "Fallback: provider falhou, tentando próximo");
     }
   }
