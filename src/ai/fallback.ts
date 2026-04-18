@@ -4,16 +4,10 @@ import { queryOpenAI } from "./openai.js";
 import { queryDeepSeek } from "./deepseek.js";
 import { logger } from "../utils/logger.js";
 
-const CLOUD_CHAIN: AIProvider[] = ["deepseek-v5", "gemini-v3", "gemini-v2", "openai-v4"];
+const CLOUD_CHAIN: AIProvider[] = ["deepseek-v5", "gemini-v3", "gemini", "openai-v4"];
 
-function isAvailable(provider: AIProvider): boolean {
-  if (provider === "deepseek-v5") {
-    return true;
-  }
-  if (provider === "gemini" || provider === "gemini-v3" || provider === "openai-v4") {
-    return true;
-  }
-  return false;
+function isAvailable(_provider: AIProvider): boolean {
+  return true;
 }
 
 async function queryWithProvider(
@@ -58,7 +52,7 @@ export async function queryWithFallback(
     try {
       const result = await queryWithProvider(provider, systemPrompt, memoryKey, userQuery);
       if (provider !== primaryProvider) {
-        logger.warn({ primaryProvider, usedProvider: provider }, "Fallback automático ativado");
+        logger.warn({ primaryProvider, usedProvider: provider }, "Modelo trocado automaticamente");
       }
       return result;
     } catch (err) {
