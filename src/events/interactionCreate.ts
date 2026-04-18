@@ -62,10 +62,15 @@ const event: BotEvent = {
             `✅ \`${pw.path}\` escrito com sucesso.`,
             `**+${pw.addedLines}** adicionadas | **-${pw.removedLines}** removidas`,
             "",
-            "⚠️ **Reinicie o bot** para as mudanças entrarem em efeito."
+            "🔄 Reiniciando automaticamente em 2s para aplicar as mudanças..."
           ].join("\n");
 
           await interaction.update({ content: confirmText, components: [] });
+
+          setTimeout(async () => {
+            const { restartProcess } = await import("../utils/restart.js");
+            restartProcess();
+          }, 2000);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           await interaction.update({ content: `❌ Erro ao escrever \`${pw.path}\`: ${msg}`, components: [] });
