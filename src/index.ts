@@ -45,7 +45,7 @@ await loadEvents(client);
 if (config.DISCORD_CLIENT_ID) {
   await registerSlashCommands();
 } else {
-  logger.warn("DISCORD_CLIENT_ID ausente: comandos slash n\u00e3o ser\u00e3o registrados");
+  logger.warn("DISCORD_CLIENT_ID ausente: comandos slash não serão registrados");
 }
 
 client.on("error", (err) => {

@@ -1,5 +1,7 @@
 import { Message } from 'discord.js';
 
+const BLACKLISTED_USERS = ['896137886070624338'];
+
 /**
  * Handler principal de mensagens do FAW
  * Gerenciado autonomamente pela Fawers
@@ -7,6 +9,9 @@ import { Message } from 'discord.js';
 export const handleMessage = async (message: Message) => {
     // Ignora bots para evitar loop
     if (message.author.bot) return;
+
+    // Blackhole Protocol: ignora usuários banidos pelo criador
+    if (BLACKLISTED_USERS.includes(message.author.id)) return;
 
     const content = message.content.trim();
 

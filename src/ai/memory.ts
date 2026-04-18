@@ -8,7 +8,7 @@ export interface ChatMessage {
 }
 
 const MEMORY_DIR = path.join(process.cwd(), "data", "memory");
-const MAX_HISTORY = 24;
+const MAX_HISTORY = 10; // Reduzido de 24 para 10 para evitar latência com contextos grandes
 
 export function resolveMemoryKey(userId: string): string {
   return userId;
@@ -70,7 +70,7 @@ export async function migrateMemoryKeys(): Promise<void> {
             continue;
           }
 
-          let newHistory: ChatMessage[] = [];
+          let newHistory: ChatMessage = [];
           try {
             const newRaw = await readFile(newPath, "utf8");
             newHistory = JSON.parse(newRaw) as ChatMessage[];
