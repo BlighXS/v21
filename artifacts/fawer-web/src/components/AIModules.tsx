@@ -50,6 +50,16 @@ const MODULES: Module[] = [
     color: "var(--green)",
     capabilities: ["GPT-5.2 flagship", "Geração de imagem", "Código profissional", "Topo de linha"],
   },
+  {
+    id: "FAW-V5-001",
+    name: "FAWER V5",
+    model: "deepseek/deepseek-chat",
+    provider: "OpenRouter · DeepSeek",
+    context: "64K tokens",
+    badge: "V5",
+    color: "var(--orange)",
+    capabilities: ["Raciocínio profundo", "Custo-eficiente", "Multi-provider", "Fallback robusto"],
+  },
 ];
 
 export default function AIModules() {
@@ -60,11 +70,11 @@ export default function AIModules() {
           AI_MODULES
         </span>
         <span style={{ fontFamily: "var(--mono)", fontSize: "0.6rem", color: "var(--text-dim)" }}>
-          — 4 motores carregados
+          — {MODULES.length} motores carregados
         </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
         {MODULES.map((mod) => (
           <div
             key={mod.id}

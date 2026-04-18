@@ -3,6 +3,10 @@ import { Router } from "express";
 const router = Router();
 
 router.get("/", (_req, res) => {
+  const geminiReady = !!(process.env.AI_INTEGRATIONS_GEMINI_API_KEY && process.env.AI_INTEGRATIONS_GEMINI_BASE_URL);
+  const openaiReady = !!(process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL);
+  const openrouterReady = !!(process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY && process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL);
+
   res.json({
     models: [
       {
@@ -19,7 +23,7 @@ router.get("/", (_req, res) => {
         description: "Gemini 2.5 Flash — inteligência avançada do Google",
         icon: "✨",
         badge: "V2",
-        available: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+        available: geminiReady,
       },
       {
         id: "gemini-v3",
@@ -27,7 +31,7 @@ router.get("/", (_req, res) => {
         description: "Gemini 3 Flash — raciocínio de próxima geração",
         icon: "🔮",
         badge: "V3",
-        available: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+        available: geminiReady,
       },
       {
         id: "openai-v4",
@@ -35,7 +39,15 @@ router.get("/", (_req, res) => {
         description: "GPT-5.2 — o modelo mais poderoso disponível",
         icon: "⚡",
         badge: "V4",
-        available: !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        available: openaiReady,
+      },
+      {
+        id: "deepseek-v5",
+        name: "FAWER V5",
+        description: "DeepSeek via OpenRouter — raciocínio profundo e eficiente",
+        icon: "🌊",
+        badge: "V5",
+        available: openrouterReady,
       },
     ],
   });

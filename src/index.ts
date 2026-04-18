@@ -236,7 +236,13 @@ client.ws.on("MESSAGE_CREATE", async (data: any) => {
       }
     } catch (err) {
       logger.error({ err }, "Erro AI");
-      await ch.send("deu erro, tenta dnv").catch(() => {});
+      const errMsg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+      const isOverload = errMsg.includes("503") || errMsg.includes("overloaded") || errMsg.includes("rate limit") || errMsg.includes("429");
+      await ch.send(
+        isOverload
+          ? "Todos os motores estão sobrecarregados no momento. Tenta de novo em instantes."
+          : "Ocorreu um erro interno ao processar sua mensagem. Tenta novamente."
+      ).catch(() => {});
     } finally {
       typing = false;
     }

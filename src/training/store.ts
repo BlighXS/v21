@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { BASE_IDENTITY, TRAINING_QUESTIONS } from "./identity.js";
-import { logger } from "./logger.js";
+import { logger } from "../utils/logger.js";
 
 export type TrainingAnswers = Record<string, string>;
 

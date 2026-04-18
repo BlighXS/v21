@@ -18,14 +18,16 @@ async function ensureDir() {
   if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true });
 }
 
+const DEFAULT_PROVIDER: AIProvider = "gemini-v3";
+
 export async function getProvider(): Promise<AIProvider> {
   if (cached) return cached;
   try {
     const raw = await readFile(PROVIDER_FILE, "utf-8");
     const state: ProviderState = JSON.parse(raw);
-    cached = state.provider ?? "ollama";
+    cached = state.provider ?? DEFAULT_PROVIDER;
   } catch {
-    cached = "ollama";
+    cached = DEFAULT_PROVIDER;
   }
   return cached;
 }

@@ -137,9 +137,14 @@ function sanitizeFwpError(msg: string): string {
     .replace(/google/gi, "motor")
     .replace(/openai/gi, "motor")
     .replace(/anthropic/gi, "motor")
+    .replace(/deepseek/gi, "motor")
+    .replace(/openrouter/gi, "motor")
+    .replace(/mistral/gi, "motor")
+    .replace(/claude/gi, "motor")
     .replace(/api[\s_-]?key/gi, "chave interna")
     .replace(/GEMINI_API_KEY[_\d]*/gi, "chave interna")
-    .replace(/AI_INTEGRATIONS[_\w]*/gi, "integração interna");
+    .replace(/AI_INTEGRATIONS[_\w]*/gi, "integração interna")
+    .replace(/https?:\/\/[^\s]+/gi, "[URL interna]");
 }
 
 function formatFwpError(error: unknown): string {
@@ -305,8 +310,8 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
     let finalRawReply = rawReply;
 
     let pendingReads = firstPass.fileReads;
-    const MAX_FOLLOW_UP_PASSES = 4;
-    for (let pass = 0; pass < MAX_FOLLOW_UP_PASSES && pendingReads.length > 0; pass++) {
+    const maxFollowUpPasses = config.MAX_FOLLOW_UP_PASSES ?? 4;
+    for (let pass = 0; pass < maxFollowUpPasses && pendingReads.length > 0; pass++) {
       try {
         const followUpQuery = buildFileReadFollowUp(pendingReads);
         const followRaw = await queryOllama(systemPrompt, memoryKey, followUpQuery);

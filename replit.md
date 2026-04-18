@@ -146,13 +146,34 @@ ALLOW_INSECURE_HTTP=false
 BLOCK_PRIVATE_IPS=true
 OPENAI_MODEL=gpt-4o
 DATABASE_URL=
-AI_INTEGRATIONS_OPENAI_API_KEY=
-AI_INTEGRATIONS_OPENAI_BASE_URL=
-AI_INTEGRATIONS_GEMINI_BASE_URL=
-AI_INTEGRATIONS_GEMINI_API_KEY=
-AI_INTEGRATIONS_OPENROUTER_BASE_URL=
-AI_INTEGRATIONS_OPENROUTER_API_KEY=
+AI_INTEGRATIONS_OPENAI_API_KEY=         # Provisionado via integração nativa Replit
+AI_INTEGRATIONS_OPENAI_BASE_URL=        # Provisionado via integração nativa Replit
+AI_INTEGRATIONS_GEMINI_API_KEY=         # Provisionado via integração nativa Replit
+AI_INTEGRATIONS_GEMINI_BASE_URL=        # Provisionado via integração nativa Replit
+AI_INTEGRATIONS_OPENROUTER_API_KEY=     # Provisionado via integração nativa Replit
+AI_INTEGRATIONS_OPENROUTER_BASE_URL=    # Provisionado via integração nativa Replit
 ```
+
+> **Nota:** As três integrações de IA (Gemini, OpenAI, OpenRouter) são configuradas via Replit AI Integrations — não é necessário inserir manualmente as chaves. Elas são provisionadas automaticamente pelo sistema Replit.
+
+## Arquivos Críticos (Bloqueados para Escrita pela IA)
+
+A IA pode ler e escrever em qualquer arquivo de `src/`, `artifacts/`, `lib/` e `data/`, **exceto** os seguintes que são protegidos:
+
+- `src/index.ts`
+- `src/utils/config.ts`
+- `src/utils/sysinfo.ts`
+- `src/utils/logger.ts`
+- `src/utils/restart.ts`
+- `src/utils/net.ts`
+- `src/utils/permissions.ts`
+- Qualquer `package.json`, `tsconfig*.json`, `.env`, `faw.env`, `.replit`, `artifact.toml`, `pnpm-lock.yaml`, `replit.md`
+
+## Cadeia de Fallback dos Motores de IA
+
+Ordem de prioridade: `gemini-v3` → `deepseek-v5` → `gemini` → `openai-v4`
+
+Provider padrão: **gemini-v3** (quando não configurado manualmente)
 
 ## Intents Necessários no Portal do Discord
 

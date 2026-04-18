@@ -85,7 +85,7 @@ export default function App() {
             {[
               { label: "BOT", s: status.bot },
               { label: "API", s: status.api },
-              { label: "AI", s: status.gemini === "online" || status.openai === "online" ? "online" as const : status.ollama },
+              { label: "AI", s: status.gemini === "online" || status.openai === "online" || status.deepseek === "online" ? "online" as const : status.api === "loading" ? "loading" as const : "offline" as const },
             ].map(({ label, s }) => (
               <div
                 key={label}

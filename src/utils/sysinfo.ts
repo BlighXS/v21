@@ -91,8 +91,27 @@ async function walkDir(dir: string, prefix = "", depth = 0): Promise<string[]> {
 
 export async function getSourceTree(): Promise<string> {
   const srcDir = path.join(ROOT, "src");
-  const lines = await walkDir(srcDir, "  ");
-  return ["[ESTRUTURA DO CÓDIGO FONTE — src/]", ...lines].join("\n");
+  const artifactsDir = path.join(ROOT, "artifacts");
+  const libDir = path.join(ROOT, "lib");
+
+  const srcLines = await walkDir(srcDir, "  ");
+  const artifactsLines = await walkDir(artifactsDir, "  ").catch(() => []);
+  const libLines = await walkDir(libDir, "  ").catch(() => []);
+
+  const sections = [
+    "[ESTRUTURA DO CÓDIGO FONTE — src/]",
+    ...srcLines,
+  ];
+
+  if (artifactsLines.length > 0) {
+    sections.push("", "[ARTIFACTS — dashboard web e API]", ...artifactsLines);
+  }
+
+  if (libLines.length > 0) {
+    sections.push("", "[LIB — bibliotecas compartilhadas]", ...libLines);
+  }
+
+  return sections.join("\n");
 }
 
 export async function readSourceFile(
@@ -141,13 +160,37 @@ export async function writeSourceFile(
     throw new Error("Conteúdo muito grande.");
   }
 
-  // bloqueio básico de arquivos críticos
-  if (
-    abs.includes("node_modules") ||
-    abs.includes(".env") ||
-    abs.includes("package.json")
-  ) {
-    throw new Error("Escrita em arquivo restrito.");
+  // Bloqueio de arquivos críticos — núcleo do sistema
+  const BLOCKED_PATTERNS = [
+    "node_modules",
+    ".env",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "tsconfig",
+    ".replit",
+    "artifact.toml",
+    "replit.md",
+    "faw.env",
+  ];
+
+  const BLOCKED_EXACT_FILES = [
+    "src/index.ts",
+    "src/utils/config.ts",
+    "src/utils/sysinfo.ts",
+    "src/utils/logger.ts",
+    "src/utils/restart.ts",
+    "src/utils/net.ts",
+    "src/utils/permissions.ts",
+  ];
+
+  const relPath = abs.slice(ROOT.length + 1).replace(/\\/g, "/");
+
+  const blockedByPattern = BLOCKED_PATTERNS.some((p) => abs.includes(p));
+  const blockedByExact = BLOCKED_EXACT_FILES.some((f) => relPath === f || relPath.endsWith(`/${f}`));
+
+  if (blockedByPattern || blockedByExact) {
+    throw new Error(`Escrita em arquivo restrito: \`${relPath}\`. Esses arquivos são núcleo do sistema e não podem ser alterados pela IA.`);
   }
 
   const { writeFile, mkdir } = await import("node:fs/promises");

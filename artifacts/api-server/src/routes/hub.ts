@@ -5,7 +5,9 @@ import { getSession } from "../lib/session.js";
 
 const router = Router();
 
-const MEMORY_DIR = join(process.cwd(), "../../data/memory");
+const MEMORY_DIR = process.env.MEMORY_DIR
+  ? process.env.MEMORY_DIR
+  : join(process.cwd(), "../../data/memory");
 const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN || "";
 const OWNER_IDS = (process.env.OWNER_IDS || process.env.OWNER_ID || "892469618063589387")
   .split(",")
