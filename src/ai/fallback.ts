@@ -6,10 +6,6 @@ import { logger } from "../utils/logger.js";
 
 const CLOUD_CHAIN: AIProvider[] = ["deepseek-v5", "gemini-v3", "gemini", "openai-v4"];
 
-function isAvailable(_provider: AIProvider): boolean {
-  return true;
-}
-
 async function queryWithProvider(
   provider: AIProvider,
   systemPrompt: string,
@@ -45,10 +41,6 @@ export async function queryWithFallback(
   let lastError: unknown;
 
   for (const provider of chain) {
-    if (!isAvailable(provider)) {
-      logger.warn({ provider }, "Fallback: provider sem credenciais, pulando");
-      continue;
-    }
     try {
       const result = await queryWithProvider(provider, systemPrompt, memoryKey, userQuery);
       if (provider !== primaryProvider) {
