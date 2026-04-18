@@ -81,7 +81,7 @@ async function queryOpenAIModel(message: string, history: Array<{ role: string; 
   const response = await client.chat.completions.create({
     model: "gpt-5.2",
     messages,
-    max_tokens: 4096,
+    max_completion_tokens: 8192,
   });
 
   return response.choices[0]?.message?.content?.trim() || "Sem resposta.";
