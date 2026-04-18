@@ -26,7 +26,10 @@ type FwpAction =
   | { type: "restart_self"; reason?: string };
 
 export function stripFwpActionBlocks(text: string): string {
-  return text.replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "").trim();
+  return text
+    .replace(/\[FWP_ACTION\][\s\S]*?\[\/FWP_ACTION\]/g, "")
+    .replace(/\[FWP_WRITE_FILE\][\s\S]*?\[\/FWP_WRITE_FILE\]/g, "")
+    .trim();
 }
 
 export interface FwpFileRead {
@@ -39,8 +42,39 @@ export interface FwpExecutionResult {
   fileReads: FwpFileRead[];
 }
 
+/**
+ * Extrai blocos FWP_WRITE_FILE — formato especial que não requer JSON-escaping do código.
+ * Formato:
+ *   [FWP_WRITE_FILE]
+ *   path: src/commands/rank.ts
+ *   ---
+ *   ...conteúdo completo do arquivo TypeScript...
+ *   [/FWP_WRITE_FILE]
+ */
+function extractWriteFileBlocks(text: string): FwpAction[] {
+  const actions: FwpAction[] = [];
+  const regex = /\[FWP_WRITE_FILE\]([\s\S]*?)\[\/FWP_WRITE_FILE\]/g;
+  for (const match of text.matchAll(regex)) {
+    const raw = match[1];
+    const separatorIdx = raw.indexOf("---");
+    if (separatorIdx === -1) continue;
+    const header = raw.slice(0, separatorIdx).trim();
+    const content = raw.slice(separatorIdx + 3);
+    // Strip optional leading newline after ---
+    const fileContent = content.startsWith("\n") ? content.slice(1) : content;
+    // Parse "path: src/..."
+    const pathMatch = header.match(/^path:\s*(.+)$/m);
+    if (!pathMatch) continue;
+    const filePath = pathMatch[1].trim();
+    actions.push({ type: "write_source_file", path: filePath, content: fileContent });
+  }
+  return actions;
+}
+
 function extractActions(text: string): FwpAction[] {
   const actions: FwpAction[] = [];
+
+  // Parse standard JSON-based FWP_ACTION blocks
   const regex = /\[FWP_ACTION\]([\s\S]*?)\[\/FWP_ACTION\]/g;
   for (const match of text.matchAll(regex)) {
     try {
@@ -48,10 +82,36 @@ function extractActions(text: string): FwpAction[] {
       if (parsed && typeof parsed === "object" && "actions" in parsed && Array.isArray(parsed.actions)) actions.push(...parsed.actions);
       else if (parsed && typeof parsed === "object") actions.push(parsed as FwpAction);
     } catch {
-      actions.push({ type: "remember", content: `A Fawers tentou emitir uma ação inválida: ${match[1].trim().slice(0, 500)}` });
+      // Try to salvage write_source_file with malformed JSON by extracting path and content manually
+      const raw = match[1].trim();
+      const typeMatch = raw.match(/"type"\s*:\s*"write_source_file"/);
+      const pathMatch = raw.match(/"path"\s*:\s*"([^"]+)"/);
+      if (typeMatch && pathMatch) {
+        // Extract content between the first occurrence of "content": " and the last "
+        const contentStart = raw.indexOf('"content"');
+        if (contentStart !== -1) {
+          const afterKey = raw.slice(contentStart + 9).trimStart().slice(1); // skip ":"
+          const firstQuote = afterKey.indexOf('"');
+          if (firstQuote !== -1) {
+            const contentRaw = afterKey.slice(firstQuote + 1);
+            // Take everything up to the last " before } or end
+            const lastQuote = contentRaw.lastIndexOf('"');
+            if (lastQuote !== -1) {
+              const content = contentRaw.slice(0, lastQuote).replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+              actions.push({ type: "write_source_file", path: pathMatch[1], content });
+            }
+          }
+        }
+      } else {
+        actions.push({ type: "remember", content: `A Fawers tentou emitir uma ação inválida: ${raw.slice(0, 500)}` });
+      }
     }
   }
-  return actions.slice(0, 10);
+
+  // Parse FWP_WRITE_FILE blocks (no JSON escaping needed — preferred for code)
+  actions.push(...extractWriteFileBlocks(text));
+
+  return actions.slice(0, 20);
 }
 
 function getTargetGuild(message: Message) {
@@ -612,9 +672,16 @@ export function buildFileReadFollowUp(fileReads: FwpFileRead[]): string {
     return `[CONTEÚDO DO ARQUIVO: ${path}]\n\`\`\`\n${preview}\n\`\`\``;
   });
   return [
-    "[SISTEMA] Leitura concluída. Os conteúdos dos arquivos solicitados estão abaixo.",
-    "Agora você tem o código real em mãos. Escreva a versão modificada COMPLETA do arquivo usando write_source_file.",
-    "IMPORTANTE: escreva o arquivo inteiro, não apenas as partes alteradas.",
+    "[SISTEMA] Leitura concluída. Conteúdos dos arquivos abaixo.",
+    "AGORA escreva o arquivo completo usando o formato FWP_WRITE_FILE (não JSON):",
+    "",
+    "  [FWP_WRITE_FILE]",
+    "  path: src/commands/exemplo.ts",
+    "  ---",
+    "  // conteúdo TypeScript completo aqui",
+    "  [/FWP_WRITE_FILE]",
+    "",
+    "CRÍTICO: escreva o arquivo INTEIRO. Sem '// resto do código'. Sem resumos. Código real e completo.",
     "",
     ...blocks
   ].join("\n");
