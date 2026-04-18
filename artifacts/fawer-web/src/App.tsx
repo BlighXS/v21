@@ -4,10 +4,13 @@ import AIModules from "./components/AIModules";
 import BotPanel from "./components/BotPanel";
 import AccessPanel from "./components/AccessPanel";
 import TerminalLog from "./components/TerminalLog";
+import HubDM from "./components/HubDM";
 import { useSysStatus } from "./hooks/useSysStatus";
+import { useMe } from "./hooks/useMe";
 
 export default function App() {
   const status = useSysStatus();
+  const { me } = useMe();
 
   return (
     <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
@@ -145,6 +148,13 @@ export default function App() {
         <div style={{ animation: "fadeInUp 0.5s ease 0.5s both" }}>
           <AccessPanel />
         </div>
+
+        {/* Hub DM — only visible to owner */}
+        {me?.isOwner && (
+          <div style={{ animation: "fadeInUp 0.5s ease 0.6s both" }}>
+            <HubDM />
+          </div>
+        )}
 
         {/* Footer */}
         <div
