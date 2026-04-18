@@ -24,6 +24,7 @@ import { getPersonalityMode, MODE_FOCO_SUFFIX } from "../ai/modeConfig.js";
 import { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { queryOpenAI } from "../ai/openai.js";
 import { queryDeepSeek } from "../ai/deepseek.js";
+import { queryWithFallback } from "../ai/fallback.js";
 import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks, buildFileReadFollowUp } from "../ai/actions.js";
 
@@ -102,17 +103,8 @@ async function queryOllama(
   userQuery: string
 ): Promise<string> {
   const provider = await getProvider();
-  if (provider === "gemini") {
-    return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V2);
-  }
-  if (provider === "gemini-v3") {
-    return await queryGemini(systemPrompt, memoryKey, userQuery, GEMINI_MODEL_V3);
-  }
-  if (provider === "openai-v4") {
-    return await queryOpenAI(systemPrompt, memoryKey, userQuery);
-  }
-  if (provider === "deepseek-v5") {
-    return await queryDeepSeek(systemPrompt, memoryKey, userQuery);
+  if (provider !== "ollama") {
+    return queryWithFallback(provider, systemPrompt, memoryKey, userQuery);
   }
   return queryLocalOllama(systemPrompt, memoryKey, userQuery);
 }
@@ -376,10 +368,10 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
       }
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Motor Beta").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2 — Flash").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3 — Flash+").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("fwp_model_v5").setLabel("FAWER V5 — DeepSeek").setStyle(ButtonStyle.Primary)
+        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("fwp_model_v5").setLabel("FAWER V5").setStyle(ButtonStyle.Primary)
       );
       const embed = buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info");
       await message.reply({ embeds: [embed], components: [row] });
@@ -780,19 +772,19 @@ const event: BotEvent = {
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId("fwp_model_v2")
-          .setLabel("FAWER V2 — Flash")
+          .setLabel("FAWER V2")
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId("fwp_model_v3")
-          .setLabel("FAWER V3 — Flash+")
+          .setLabel("FAWER V3")
           .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId("fwp_model_v4")
-          .setLabel("FAWER V4 — Pro")
+          .setLabel("FAWER V4")
           .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
           .setCustomId("fwp_model_v5")
-          .setLabel("FAWER V5 — DeepSeek")
+          .setLabel("FAWER V5")
           .setStyle(ButtonStyle.Primary)
       );
 

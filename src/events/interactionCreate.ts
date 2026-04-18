@@ -84,13 +84,13 @@ const event: BotEvent = {
         if (interaction.customId === "fwp_model_beta") {
           providerKey = "ollama"; label = "Motor **Beta** selecionado e ativo.";
         } else if (interaction.customId === "fwp_model_v2") {
-          providerKey = "gemini"; label = "Modelo **FAWER V2 — Flash** selecionado e ativo.";
+          providerKey = "gemini"; label = "**FAWER V2** selecionada e ativa.";
         } else if (interaction.customId === "fwp_model_v3") {
-          providerKey = "gemini-v3"; label = "Modelo **FAWER V3 — Flash+** selecionado e ativo.";
+          providerKey = "gemini-v3"; label = "**FAWER V3** selecionada e ativa.";
         } else if (interaction.customId === "fwp_model_v4") {
-          providerKey = "openai-v4"; label = "Modelo **FAWER V4 — Pro** selecionado e ativo.";
+          providerKey = "openai-v4"; label = "**FAWER V4** selecionada e ativa.";
         } else {
-          providerKey = "deepseek-v5"; label = "Modelo **FAWER V5 — DeepSeek** selecionado e ativo.";
+          providerKey = "deepseek-v5"; label = "**FAWER V5** selecionada e ativa.";
         }
         await setProvider(providerKey as AIProvider);
         const embed = buildEmbed("✅ Setup — Fawers", label, "ok");

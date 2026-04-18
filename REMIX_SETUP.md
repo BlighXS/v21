@@ -18,36 +18,43 @@ Após fazer o remix deste projeto, o código já está pronto, mas você precisa
 
 ---
 
-## Integração DeepSeek — V5
+## Integração V5 — OpenRouter
 
-### Instrução para o agente de IA do Replit (DeepSeek)
+### Instrução para o agente de IA do Replit (OpenRouter)
 
-> "Configure a integração nativa do Replit com o DeepSeek. Chame `setupReplitAIIntegrations` com `providerSlug: 'deepseek'`, `providerUrlEnvVarName: 'AI_INTEGRATIONS_DEEPSEEK_BASE_URL'` e `providerApiKeyEnvVarName: 'AI_INTEGRATIONS_DEEPSEEK_API_KEY'`. Depois reinicie o bot."
+> "Configure a integração nativa do Replit com o OpenRouter. Chame `setupReplitAIIntegrations` com `providerSlug: 'openrouter'`, `providerUrlEnvVarName: 'AI_INTEGRATIONS_OPENROUTER_BASE_URL'` e `providerApiKeyEnvVarName: 'AI_INTEGRATIONS_OPENROUTER_API_KEY'`. Depois reinicie o bot."
 
 ---
 
 ## O que cada integração faz
 
-- Não exige chave de API própria do Google, OpenAI ou DeepSeek
+- Não exige chave de API própria
 - O uso é cobrado nos créditos Replit da sua conta
 - As variáveis de ambiente são provisionadas automaticamente
+- Se um motor falhar, o sistema usa **fallback automático** para o próximo disponível (nunca cai no Motor Beta)
 
 ---
 
 ## Modelos configurados
 
-| Botão no `;setup fwp` | Modelo | Custo |
+| Botão no `;setup fwp` | Motor interno | Custo |
 |---|---|---|
-| Beta | `llama3.2:1b` (roda local via Ollama) | Sem custo externo |
-| FAWER_V2.01 | `gemini-2.5-flash` (integração Gemini) | Créditos Replit |
-| FAWER Flash V3.0 | `gemini-3-flash-preview` (integração Gemini) | Créditos Replit |
-| FAWER V4 (ChatGPT) | `gpt-5.2` (integração OpenAI) | Créditos Replit |
-| FAWER V5 (DeepSeek) | `deepseek-chat` (integração DeepSeek) | Créditos Replit |
+| Motor Beta | `llama3.2:1b` (local via Ollama) | Sem custo externo |
+| FAWER V2 | Gemini (integração Gemini) | Créditos Replit |
+| FAWER V3 | Gemini avançado (integração Gemini) | Créditos Replit |
+| FAWER V4 | Motor GPT (integração OpenAI) | Créditos Replit |
+| FAWER V5 | Motor alternativo (integração OpenRouter) | Créditos Replit |
+
+---
+
+## Fallback automático
+
+O sistema tenta os motores nesta ordem ao falhar: **V3 → V2 → V4 → V5**. Nunca cai no Motor Beta automaticamente.
 
 ---
 
 ## Observações
 
-- O modelo Beta (Ollama) funciona sem configuração extra, mas você precisa baixar o modelo rodando `ollama pull llama3.2:1b` no shell
-- A seleção de modelo é **global** — o que você definir no `;setup fwp` vale para todos os usuários do servidor
-- Não há fallback entre modelos: se o modelo configurado falhar, o bot reporta o erro diretamente
+- O Motor Beta (Ollama) funciona sem configuração extra, mas você precisa baixar o modelo rodando `ollama pull llama3.2:1b` no shell
+- A seleção de versão é **global** — o que você definir no `;setup fwp` vale para todos os usuários do servidor
+- Não há nomes de modelos externos expostos nos botões

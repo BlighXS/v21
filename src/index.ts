@@ -69,9 +69,7 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
 
   try {
     const { loadTrainingData } = await import("./training/store.js");
-    const { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
-    const { queryOpenAI } = await import("./ai/openai.js");
-    const { queryDeepSeek } = await import("./ai/deepseek.js");
+    const { queryWithFallback } = await import("./ai/fallback.js");
     const { getProvider } = await import("./ai/providerConfig.js");
     const { clearUserMemory } = await import("./ai/memory.js");
     const { buildEmbed, truncate } = await import("./utils/format.js");
@@ -94,10 +92,10 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       }
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("fwp_model_beta").setLabel("Motor Beta").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2 — Flash").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3 — Flash+").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4 — Pro").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId("fwp_model_v5").setLabel("FAWER V5 — DeepSeek").setStyle(ButtonStyle.Primary)
+        new ButtonBuilder().setCustomId("fwp_model_v2").setLabel("FAWER V2").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("fwp_model_v3").setLabel("FAWER V3").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("fwp_model_v4").setLabel("FAWER V4").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("fwp_model_v5").setLabel("FAWER V5").setStyle(ButtonStyle.Primary)
       );
       await ch.send({ embeds: [buildEmbed("Setup — Fawers", "Qual versão da Fawers você quer ativar?", "info")], components: [row] });
       return;
@@ -123,12 +121,11 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       const provider = await getProvider();
       const contextualContent = `[Via DM]: ${rawContent}`;
       let raw: string;
-      if (provider === "openai-v4") {
-        raw = await queryOpenAI(systemPrompt, memoryKey, contextualContent);
-      } else if (provider === "deepseek-v5") {
-        raw = await queryDeepSeek(systemPrompt, memoryKey, contextualContent);
+      if (provider === "ollama") {
+        const { queryGemini, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
+        raw = await queryGemini(systemPrompt, memoryKey, contextualContent, GEMINI_MODEL_V3);
       } else {
-        raw = await queryGemini(systemPrompt, memoryKey, contextualContent, provider === "gemini-v3" ? GEMINI_MODEL_V3 : GEMINI_MODEL_V2);
+        raw = await queryWithFallback(provider, systemPrompt, memoryKey, contextualContent);
       }
       const reply = stripFwpActionBlocks(raw).replace(/^\[SILENT\]/, "").trim();
       if (reply) await ch.send(truncate(reply, 1900));
@@ -149,12 +146,11 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
           try {
             const followUpQuery = buildFileReadFollowUp(pendingReads);
             let followRaw: string;
-            if (provider === "openai-v4") {
-              followRaw = await queryOpenAI(systemPrompt, memoryKey, followUpQuery);
-            } else if (provider === "deepseek-v5") {
-              followRaw = await queryDeepSeek(systemPrompt, memoryKey, followUpQuery);
+            if (provider === "ollama") {
+              const { queryGemini, GEMINI_MODEL_V3 } = await import("./ai/gemini.js");
+              followRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, GEMINI_MODEL_V3);
             } else {
-              followRaw = await queryGemini(systemPrompt, memoryKey, followUpQuery, provider === "gemini-v3" ? GEMINI_MODEL_V3 : GEMINI_MODEL_V2);
+              followRaw = await queryWithFallback(provider, systemPrompt, memoryKey, followUpQuery);
             }
             const followPass = await executeFwpActions(fullMsg, followRaw);
             const followReply = stripFwpActionBlocks(followRaw).replace(/^\[SILENT\]/, "").trim();

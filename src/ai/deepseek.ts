@@ -3,14 +3,14 @@ import { loadUserMemory, appendToUserMemory } from "./memory.js";
 import { logger } from "../utils/logger.js";
 import { recordMemorialEvent } from "./memorial.js";
 
-export const DEEPSEEK_MODEL_V5 = "deepseek-chat";
+export const DEEPSEEK_MODEL_V5 = "deepseek/deepseek-chat";
 
 function createClient(): OpenAI {
-  const apiKey = process.env.AI_INTEGRATIONS_DEEPSEEK_API_KEY?.trim();
-  const baseURL = process.env.AI_INTEGRATIONS_DEEPSEEK_BASE_URL?.trim();
+  const apiKey = process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY?.trim();
+  const baseURL = process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL?.trim();
 
   if (!apiKey || !baseURL) {
-    throw new Error("Motor V5 não configurado: integração DeepSeek não provisionada.");
+    throw new Error("Motor V5 não configurado: integração não provisionada.");
   }
 
   return new OpenAI({ apiKey, baseURL });
@@ -46,9 +46,9 @@ export async function queryDeepSeek(
   await recordMemorialEvent({
     type: "ai_response",
     content: reply,
-    metadata: { provider: "deepseek", memoryKey, model }
+    metadata: { provider: "deepseek-v5", memoryKey, model }
   });
 
-  logger.info({ memoryKey, model }, "Resposta DeepSeek V5 gerada");
+  logger.info({ memoryKey, model }, "Resposta V5 gerada");
   return reply;
 }
