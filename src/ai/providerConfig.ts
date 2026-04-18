@@ -18,7 +18,7 @@ async function ensureDir() {
   if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true });
 }
 
-const DEFAULT_PROVIDER: AIProvider = "gemini-v3";
+const DEFAULT_PROVIDER: AIProvider = "openai-v4";
 
 export async function getProvider(): Promise<AIProvider> {
   if (cached) return cached;

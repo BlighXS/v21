@@ -160,37 +160,21 @@ export async function writeSourceFile(
     throw new Error("Conteúdo muito grande.");
   }
 
-  // Bloqueio de arquivos críticos — núcleo do sistema
+  // Bloqueio apenas de arquivos de ambiente e dependências — o dono tem acesso total ao código-fonte
   const BLOCKED_PATTERNS = [
     "node_modules",
     ".env",
-    "package.json",
-    "package-lock.json",
     "pnpm-lock.yaml",
-    "tsconfig",
-    ".replit",
-    "artifact.toml",
-    "replit.md",
+    "package-lock.json",
     "faw.env",
-  ];
-
-  const BLOCKED_EXACT_FILES = [
-    "src/index.ts",
-    "src/utils/config.ts",
-    "src/utils/sysinfo.ts",
-    "src/utils/logger.ts",
-    "src/utils/restart.ts",
-    "src/utils/net.ts",
-    "src/utils/permissions.ts",
   ];
 
   const relPath = abs.slice(ROOT.length + 1).replace(/\\/g, "/");
 
   const blockedByPattern = BLOCKED_PATTERNS.some((p) => abs.includes(p));
-  const blockedByExact = BLOCKED_EXACT_FILES.some((f) => relPath === f || relPath.endsWith(`/${f}`));
 
-  if (blockedByPattern || blockedByExact) {
-    throw new Error(`Escrita em arquivo restrito: \`${relPath}\`. Esses arquivos são núcleo do sistema e não podem ser alterados pela IA.`);
+  if (blockedByPattern) {
+    throw new Error(`Escrita em arquivo restrito: \`${relPath}\`. Arquivos de ambiente e dependências não podem ser alterados.`);
   }
 
   const { writeFile, mkdir } = await import("node:fs/promises");
