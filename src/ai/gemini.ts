@@ -6,13 +6,7 @@ import { recordMemorialEvent } from "./memorial.js";
 export const GEMINI_MODEL_V2 = "gemini-2.5-flash";
 export const GEMINI_MODEL_V3 = "gemini-3-flash-preview";
 
-const FALLBACK_CHAIN = [
-  "gemini-3-flash-preview",
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
-];
-
-const RETRY_DELAY_MS = 4000;
+const FALLBACK_CHAIN = ["gemini-3-flash-preview", "gemini-2.5-flash"];
 
 function getAiClient(): GoogleGenAI {
   const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY?.trim();
@@ -23,20 +17,6 @@ function getAiClient(): GoogleGenAI {
   }
 
   return new GoogleGenAI({ apiKey, httpOptions: { baseUrl, apiVersion: "" } });
-}
-
-function isRateLimitError(err: unknown): boolean {
-  const msg = String(err).toLowerCase();
-  return (
-    msg.includes("ratelimit_exceeded") ||
-    msg.includes("rate limit") ||
-    msg.includes("429") ||
-    msg.includes("resource_exhausted")
-  );
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function tryModel(
@@ -79,37 +59,25 @@ export async function queryGemini(
     ...FALLBACK_CHAIN.filter((m) => m !== preferredModel),
   ];
 
-  let lastError: unknown;
-
   for (const model of chain) {
-    // Try each model up to 2 times with a short delay
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const reply = await tryModel(ai, model, systemPrompt, contents);
-
-        await appendToUserMemory(memoryKey, userQuery, reply);
-        await recordMemorialEvent({
-          type: "ai_response",
-          content: reply,
-          metadata: { provider: "gemini", memoryKey, model },
-        });
-        logger.info({ memoryKey, model }, "Resposta Gemini gerada");
-        return reply;
-      } catch (err) {
-        lastError = err;
-        if (isRateLimitError(err)) {
-          logger.warn({ model, attempt }, "Rate limit no modelo, tentando próximo");
-          // Espera mais a cada tentativa (backoff)
-          await sleep(RETRY_DELAY_MS * attempt);
-          break; // move to next model in chain
-        }
-        throw err; // non-rate-limit error: propagate immediately
+    try {
+      const reply = await tryModel(ai, model, systemPrompt, contents);
+      if (model !== preferredModel) {
+        logger.warn({ fromModel: preferredModel, toModel: model }, "Modelo Gemini trocado");
       }
+      await appendToUserMemory(memoryKey, userQuery, reply);
+      await recordMemorialEvent({
+        type: "ai_response",
+        content: reply,
+        metadata: { provider: "gemini", memoryKey, model },
+      });
+      logger.info({ memoryKey, model }, "Resposta Gemini gerada");
+      return reply;
+    } catch (err) {
+      logger.warn({ model, err: String(err) }, "Modelo Gemini falhou");
     }
-    // Pequena pausa antes de tentar o próximo modelo da cadeia
-    await sleep(RETRY_DELAY_MS);
   }
 
   logger.error({ chain }, "Todos os modelos Gemini falharam");
-  throw new Error(`Todos os modelos Gemini falharam. Último erro: ${String(lastError)}`);
+  throw new Error("Todos os modelos Gemini falharam.");
 }

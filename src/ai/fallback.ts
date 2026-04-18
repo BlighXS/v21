@@ -4,16 +4,13 @@ import { queryOpenAI } from "./openai.js";
 import { queryDeepSeek } from "./deepseek.js";
 import { logger } from "../utils/logger.js";
 
-const CLOUD_CHAIN: AIProvider[] = ["gemini-v3", "gemini", "openai-v4", "deepseek-v5"];
+const CLOUD_CHAIN: AIProvider[] = ["deepseek-v5", "gemini-v3", "gemini-v2", "openai-v4"];
 
 function isAvailable(provider: AIProvider): boolean {
-  if (provider === "gemini" || provider === "gemini-v3") {
-    return true;
-  }
-  if (provider === "openai-v4") {
-    return true;
-  }
   if (provider === "deepseek-v5") {
+    return true;
+  }
+  if (provider === "gemini" || provider === "gemini-v3" || provider === "openai-v4") {
     return true;
   }
   return false;
