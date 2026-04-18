@@ -132,11 +132,21 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
       logger.info({ authorId: data.author.id }, "DM respondida");
 
       // Execute FWP actions if any (fetch real Message object for the action executor)
+      // Internal actions (file reads, memory, biography) run silently — only visible
+      // actions (create channel, ban, mute, send_message) show reports to the user.
+      const SILENT_PREFIXES = [
+        "Arquivo", "Diretório", "Nenhum caminho", "Nenhum conteúdo",
+        "Preferência", "Biografia", "Diff de", "Não consegui enviar o diff"
+      ];
+      function isVisibleReport(r: string) {
+        return !SILENT_PREFIXES.some((p) => r.startsWith(p));
+      }
+
       const { executeFwpActions } = await import("./ai/actions.js");
       try {
         const fullMsg = await ch.messages.fetch(data.id);
         const firstPass = await executeFwpActions(fullMsg, raw);
-        for (const report of firstPass.reports) {
+        for (const report of firstPass.reports.filter(isVisibleReport)) {
           await ch.send(`> ${report}`).catch(() => {});
         }
 
@@ -155,13 +165,12 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
             const followPass = await executeFwpActions(fullMsg, followRaw);
             const followReply = stripFwpActionBlocks(followRaw).replace(/^\[SILENT\]/, "").trim();
             if (followReply) await ch.send(truncate(followReply, 1900)).catch(() => {});
-            for (const report of followPass.reports) {
+            for (const report of followPass.reports.filter(isVisibleReport)) {
               await ch.send(`> ${report}`).catch(() => {});
             }
             pendingReads = followPass.fileReads;
           } catch (followErr) {
             logger.warn({ followErr, pass }, "DM: passada de leitura falhou");
-            await ch.send("⚠️ Tive um problema interno ao processar o arquivo. Pode repetir o pedido?").catch(() => {});
             break;
           }
         }

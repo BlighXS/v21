@@ -95,7 +95,7 @@ router.get("/me", (req, res) => {
     return;
   }
 
-  const ownerIds = (process.env.OWNER_IDS || process.env.OWNER_ID || "").split(",").map((s) => s.trim());
+  const ownerIds = (process.env.OWNER_IDS || process.env.OWNER_ID || "892469618063589387").split(",").map((s) => s.trim());
   const isOwner = ownerIds.includes(session.discordId ?? "");
 
   res.json({

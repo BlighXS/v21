@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { MeData } from "../hooks/useMe";
 
 interface HubUser {
   userId: string;
@@ -221,7 +222,7 @@ const S = {
   }),
 };
 
-export default function HubDM() {
+export default function HubDM({ me }: { me: MeData | null }) {
   const [users, setUsers] = useState<HubUser[]>([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -236,13 +237,16 @@ export default function HubDM() {
   const fileRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
+  const isOwner = me?.isOwner === true;
+
   useEffect(() => {
+    if (!isOwner) { setLoadingUsers(false); return; }
     fetch("/api/hub/users", { credentials: "include" })
       .then((r) => r.json())
       .then((d: { users?: HubUser[] }) => setUsers(d.users ?? []))
       .catch(() => setUsers([]))
       .finally(() => setLoadingUsers(false));
-  }, []);
+  }, [isOwner]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -332,6 +336,55 @@ export default function HubDM() {
   );
 
   const selected = users.find((u) => u.userId === selectedId) ?? null;
+
+  if (!me) {
+    return (
+      <div>
+        <div style={{ marginBottom: 12 }}>
+          <span style={{ fontFamily: "var(--mono)", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.12em", color: "var(--text-dim)" }}>
+            HUB_DM · PAINEL DE MENSAGENS DIRETAS
+          </span>
+        </div>
+        <div style={{ ...S.panel, justifyContent: "center", alignItems: "center", gap: 16 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em" }}>
+            VERIFICANDO SESSÃO...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <div>
+        <div style={{ marginBottom: 12 }}>
+          <span style={{ fontFamily: "var(--mono)", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.12em", color: "var(--text-dim)" }}>
+            HUB_DM · PAINEL DE MENSAGENS DIRETAS
+          </span>
+        </div>
+        <div style={{ ...S.panel, justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontFamily: "var(--mono)", fontSize: "0.65rem", color: "var(--text-dim)", letterSpacing: "0.08em", textAlign: "center" }}>
+            {me.authenticated
+              ? "ACESSO NEGADO · SOMENTE O DONO DO HUB PODE ACESSAR ESTE PAINEL"
+              : "FAÇA LOGIN COM O DISCORD PARA ACESSAR ESTE PAINEL"}
+          </div>
+          {!me.authenticated && (
+            <a
+              href="/api/auth/discord"
+              style={{
+                ...S.btn("primary"),
+                textDecoration: "none",
+                display: "inline-block",
+                padding: "8px 20px",
+              }}
+            >
+              ▶ LOGIN COM DISCORD
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -149,12 +149,10 @@ export default function App() {
           <AccessPanel />
         </div>
 
-        {/* Hub DM — only visible to owner */}
-        {me?.isOwner && (
-          <div style={{ animation: "fadeInUp 0.5s ease 0.6s both" }}>
-            <HubDM />
-          </div>
-        )}
+        {/* Hub DM — always shown; API enforces owner-only access */}
+        <div style={{ animation: "fadeInUp 0.5s ease 0.6s both" }}>
+          <HubDM me={me} />
+        </div>
 
         {/* Footer */}
         <div
