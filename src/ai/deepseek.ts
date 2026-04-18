@@ -40,7 +40,12 @@ export async function queryDeepSeek(
     max_tokens: 8192
   });
 
-  const reply = response.choices[0]?.message?.content?.trim() || "Sem resposta gerada.";
+  const errorBody = (response as unknown as { error?: { message?: string; code?: number } }).error;
+  if (errorBody) {
+    throw new Error(`OpenRouter erro: ${errorBody.message ?? JSON.stringify(errorBody)}`);
+  }
+
+  const reply = response.choices?.[0]?.message?.content?.trim() || "Sem resposta gerada.";
 
   await appendToUserMemory(memoryKey, userQuery, reply);
   await recordMemorialEvent({
