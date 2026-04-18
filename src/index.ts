@@ -191,9 +191,6 @@ client.ws.on("MESSAGE_CREATE" as any, async (data: any) => {
 
 client.login(config.DISCORD_TOKEN);
 
-const { startDashboard } = await import("./web/dashboard.js");
-startDashboard(client);
-
 async function registerSlashCommands() {
   const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
   const commandsJson = client.commands.map((cmd) => cmd.data.toJSON());

@@ -67,7 +67,6 @@ const command: SlashCommand = {
             `Cargos admin: ${config.ADMIN_ROLE_IDS.length}`,
             `Cargos restart: ${config.RESTART_ROLE_IDS.length}`,
             `Canal de log: ${config.LOG_CHANNEL_ID ? "\u2705 configurado" : "\u274C n\u00e3o configurado"}`,
-            `Dashboard: ${config.DASHBOARD_TOKEN ? "\u2705 ativo" : "\u274C inativo"}`,
             `Spotify: ${config.SPOTIFY_CLIENT_ID ? "\u2705 configurado" : "\u274C n\u00e3o configurado"}`,
             `IA: ${process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? "\u2705 configurada" : "\u274C n\u00e3o configurada"}`
           ].join("\n"),

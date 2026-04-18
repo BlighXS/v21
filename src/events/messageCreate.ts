@@ -671,7 +671,6 @@ const event: BotEvent = {
             value: [
               `Prefixo: \`${config.PREFIX}\``,
               `Canal log: ${config.LOG_CHANNEL_ID ? "\u2705" : "\u274C"}`,
-              `Dashboard: ${config.DASHBOARD_TOKEN ? "\u2705" : "\u274C"}`,
               `Spotify: ${config.SPOTIFY_CLIENT_ID ? "\u2705" : "\u274C"}`
             ].join("\n"),
             inline: false
