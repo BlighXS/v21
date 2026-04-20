@@ -15,7 +15,7 @@ export interface PendingWrite {
   removedLines: number;
 }
 
-const EXPIRY_MS = 10 * 60 * 1000;
+const EXPIRY_MS = 60 * 60 * 1000;
 
 const store = new Map<string, PendingWrite>();
 

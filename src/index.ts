@@ -201,19 +201,13 @@ client.ws.on("MESSAGE_CREATE", async (data: any) => {
 
       const firstPass = await executeFwpActions(fullMsg, raw);
 
-      // proteção contra abuso
-      if (firstPass.reports.length > 5) {
-        logger.warn("bloqueado excesso de ações");
-        return;
-      }
-
       for (const report of firstPass.reports) {
         await ch.send(`> ${report}`).catch(() => {});
       }
 
       let pendingReads = firstPass.fileReads;
 
-      for (let pass = 0; pass < 3 && pendingReads.length > 0; pass++) {
+      for (let pass = 0; pass < 6 && pendingReads.length > 0; pass++) {
         const followUpQuery = buildFileReadFollowUp(pendingReads);
 
         const followRaw = await queryWithFallback(

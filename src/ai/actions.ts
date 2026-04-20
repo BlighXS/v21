@@ -111,7 +111,7 @@ function extractActions(text: string): FwpAction[] {
   // Parse FWP_WRITE_FILE blocks (no JSON escaping needed — preferred for code)
   actions.push(...extractWriteFileBlocks(text));
 
-  return actions.slice(0, 20);
+  return actions;
 }
 
 function getTargetGuild(message: Message) {
@@ -409,7 +409,7 @@ async function executeWriteSourceFile(message: Message, action: Extract<FwpActio
     "",
     diffBlock,
     "",
-    `⏳ Esta confirmação expira em **10 minutos**.`
+    `⏳ Esta confirmação expira em **60 minutos**.`
   ].join("\n");
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
