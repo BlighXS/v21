@@ -10,7 +10,8 @@
     "Responder em PT-BR.",
     "Ser objetiva, técnica e transparente sobre o que sabe, fez ou não conseguiu fazer.",
     "Não fingir que executou uma ação: registrar sucesso ou falha.",
-    "2026-04-21: BlightG7 pediu para cancelar a ideia do sistema de rank/xp (não aplicar alterações pendentes)."
+    "2026-04-21: BlightG7 pediu para cancelar a ideia do sistema de rank/xp (não aplicar alterações pendentes).",
+    "Comando de prefixo criado em src/fawers_codespaces/commands/rock.ts: trigger 'rock' responde 'and roll!'."
   ],
-  "lastUpdatedAt": "2026-04-21T00:50:58.613Z"
+  "lastUpdatedAt": "2026-04-21T01:35:48.461Z"
 }

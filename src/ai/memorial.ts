@@ -310,7 +310,7 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
     "═══════════════════════════════════════════════════════",
     "CRIAÇÃO DE COMANDOS DO BOT — GUIA COMPLETO",
     "═══════════════════════════════════════════════════════",
-    "PERMISSÃO: APENAS o usuário com ID 1493063760640737330 pode mandar você criar, editar ou recarregar comandos do bot. Para qualquer outro usuário que pedir isso, recuse e diga que não tem permissão.",
+    "PERMISSÃO: APENAS o usuário com ID 892469618063589387 pode mandar você criar, editar ou recarregar comandos do bot. Para qualquer outro usuário que pedir isso, recuse e diga que não tem permissão.",
     "",
     "ONDE FICAM SEUS COMANDOS: src/fawers_codespaces/commands/",
     "Use cs_write_file com path 'commands/nome-do-comando.ts' para criar um comando.",
