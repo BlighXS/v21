@@ -29,12 +29,27 @@ function findWelcomeChannel(member: GuildMember): TextBasedChannel | null {
   return null;
 }
 
+const UNREG_ROLE_ID = "1495985456943202327";
+
 const event: BotEvent = {
   name: "guildMemberAdd",
 
   async execute(member: GuildMember) {
     try {
       const { guild, user } = member;
+
+      // Atribuir cargo de Não-Registrado automaticamente
+      try {
+        const unregRole = guild.roles.cache.get(UNREG_ROLE_ID);
+        if (unregRole) {
+          await member.roles.add(unregRole, "Cargo automático de novo membro");
+          logger.info({ userId: user.id, roleId: UNREG_ROLE_ID }, "Cargo Não-Registrado atribuído");
+        } else {
+          logger.warn({ roleId: UNREG_ROLE_ID }, "Cargo Não-Registrado não encontrado no servidor");
+        }
+      } catch (roleError) {
+        logger.warn({ roleError, userId: user.id }, "Falha ao atribuir cargo automático");
+      }
 
       const createdAt = `<t:${Math.floor(user.createdTimestamp / 1000)}:R>`;
       const memberCount = guild.memberCount;
