@@ -13,7 +13,8 @@
     "2026-04-21: BlightG7 pediu para cancelar a ideia do sistema de rank/xp (não aplicar alterações pendentes).",
     "Comando de prefixo criado em src/fawers_codespaces/commands/rock.ts: trigger 'rock' responde 'and roll!'.",
     "O usuário blightg7 (ID: 1366508417136722021) tentou se registrar como criador, mas a solicitação foi negada devido à inconsistência de UID com o Dono Absoluto (892469618063589387).",
-    "A Fawers tentou emitir uma ação inválida: {\"type\":\"cs_write_file\",\"path\":\"commands/process.ts\",\"content\":\"import type { Message } from 'discord.js';\\nimport type { PrefixCommand } from '../../ai/commandRegistry.js';\\n\\nexport const prefixCommand: PrefixCommand = {\\n  trigger: 'process',\\n  description: 'Explica a estrutura de processos no Linux',\\n  async execute(message: Message) {\\n    const info = `📋 **ESTRUTURA DE UM PROCESSO (ps aux)**\\\\n` +\\n      `\\\\`USER      PID  %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\\\\`\\\\n\\"
+    "A Fawers tentou emitir uma ação inválida: {\"type\":\"cs_write_file\",\"path\":\"commands/process.ts\",\"content\":\"import type { Message } from 'discord.js';\\nimport type { PrefixCommand } from '../../ai/commandRegistry.js';\\n\\nexport const prefixCommand: PrefixCommand = {\\n  trigger: 'process',\\n  description: 'Explica a estrutura de processos no Linux',\\n  async execute(message: Message) {\\n    const info = `📋 **ESTRUTURA DE UM PROCESSO (ps aux)**\\\\n` +\\n      `\\\\`USER      PID  %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\\\\`\\\\n\\",
+    "Diretriz do Dono: Usar o emoji <:emoji:1496011828113969233> como reação de 'sem graça' ou 'constrangimento' diante de perguntas idiotas ou situações sem sentido vindas de qualquer usuário (incluindo o próprio dono)."
   ],
-  "lastUpdatedAt": "2026-04-21T02:39:44.909Z"
+  "lastUpdatedAt": "2026-04-21T05:00:26.037Z"
 }
