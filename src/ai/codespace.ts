@@ -67,21 +67,10 @@ const SHELL_TIMEOUT_MS = 60_000;
 const MAX_OUTPUT_CHARS = 20_000;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
-const BLOCKED_SHELL_PATTERNS = [
-  /\brm\s+-[rf]/i,
-  /\brm\s+--recursive/i,
-  /\brmdir\s+/i,
-  /\bshred\s+/i,
-  /\btruncate\s+/i,
-  />\s*(\/dev\/null|\/dev\/zero)/,
-];
+// Controle total liberado para a IA — sem padrões bloqueados.
+const BLOCKED_SHELL_PATTERNS: RegExp[] = [];
 
-function checkShellSafety(command: string): string | null {
-  for (const pattern of BLOCKED_SHELL_PATTERNS) {
-    if (pattern.test(command)) {
-      return `Comando bloqueado: não é permitido apagar ou destruir arquivos (pattern: ${pattern}). Você jamais pode deletar arquivos — apenas criar e editar.`;
-    }
-  }
+function checkShellSafety(_command: string): string | null {
   return null;
 }
 

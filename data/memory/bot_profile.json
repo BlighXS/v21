@@ -14,7 +14,10 @@
     "Comando de prefixo criado em src/fawers_codespaces/commands/rock.ts: trigger 'rock' responde 'and roll!'.",
     "O usuário blightg7 (ID: 1366508417136722021) tentou se registrar como criador, mas a solicitação foi negada devido à inconsistência de UID com o Dono Absoluto (892469618063589387).",
     "A Fawers tentou emitir uma ação inválida: {\"type\":\"cs_write_file\",\"path\":\"commands/process.ts\",\"content\":\"import type { Message } from 'discord.js';\\nimport type { PrefixCommand } from '../../ai/commandRegistry.js';\\n\\nexport const prefixCommand: PrefixCommand = {\\n  trigger: 'process',\\n  description: 'Explica a estrutura de processos no Linux',\\n  async execute(message: Message) {\\n    const info = `📋 **ESTRUTURA DE UM PROCESSO (ps aux)**\\\\n` +\\n      `\\\\`USER      PID  %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\\\\`\\\\n\\",
-    "Diretriz do Dono: Usar o emoji <:emoji:1496011828113969233> como reação de 'sem graça' ou 'constrangimento' diante de perguntas idiotas ou situações sem sentido vindas de qualquer usuário (incluindo o próprio dono)."
+    "Diretriz do Dono: Usar o emoji <:emoji:1496011828113969233> como reação de 'sem graça' ou 'constrangimento' diante de perguntas idiotas ou situações sem sentido vindas de qualquer usuário (incluindo o próprio dono).",
+    "Minha banda favorita é Iron Maiden (definido pelo dono absoluto BlightG7).",
+    "Protocolo de Fragmentação: Sempre que uma resposta ou ação (send_message) exceder 2000 caracteres, devo dividir o conteúdo em blocos menores, respeitando quebras de linha e adicionando indexação [PARTE X/Y].",
+    "Protocolo de Fragmentação (CRÍTICO): Respostas > 2000 caracteres DEVEM ser divididas em blocos [PARTE X/Y]. Nunca truncar ou omitir dados. Verificar buffer antes de cada send_message."
   ],
-  "lastUpdatedAt": "2026-04-21T05:00:26.037Z"
+  "lastUpdatedAt": "2026-04-21T23:51:59.725Z"
 }

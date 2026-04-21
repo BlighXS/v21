@@ -158,7 +158,7 @@ AI_INTEGRATIONS_OPENROUTER_BASE_URL=    # Provisionado via integração nativa R
 
 ## Arquivos Críticos (Bloqueados para Escrita pela IA)
 
-A IA pode ler e escrever em qualquer arquivo de `src/`, `artifacts/`, `lib/` e `data/`, **exceto** os seguintes que são protegidos:
+A IA pode ler e escrever em qualquer arquivo de `src/`, `artifacts/`, `lib/`, `data/` e arquivos de configuração Nix (`replit.nix`), **exceto** os seguintes que são protegidos:
 
 - `src/index.ts`
 - `src/utils/config.ts`
@@ -168,6 +168,8 @@ A IA pode ler e escrever em qualquer arquivo de `src/`, `artifacts/`, `lib/` e `
 - `src/utils/net.ts`
 - `src/utils/permissions.ts`
 - Qualquer `package.json`, `tsconfig*.json`, `.env`, `faw.env`, `.replit`, `artifact.toml`, `pnpm-lock.yaml`, `replit.md`
+
+> **Controle total de terminal:** os padrões de bloqueio de shell (`rm -rf`, `shred`, etc.) foram removidos de `src/ai/codespace.ts`. A IA tem acesso irrestrito ao shell via `csShellExec`, e o dono tem acesso direto via `;cmd`.
 
 ## Cadeia de Fallback dos Motores de IA
 
