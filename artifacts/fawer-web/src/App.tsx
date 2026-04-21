@@ -5,6 +5,7 @@ import BotPanel from "./components/BotPanel";
 import AccessPanel from "./components/AccessPanel";
 import TerminalLog from "./components/TerminalLog";
 import HubDM from "./components/HubDM";
+import ChatBot from "./components/ChatBot";
 import { useSysStatus } from "./hooks/useSysStatus";
 import { useMe } from "./hooks/useMe";
 
@@ -178,6 +179,8 @@ export default function App() {
           </span>
         </div>
       </main>
+
+      {me?.isOwner && <ChatBot />}
     </div>
   );
 }

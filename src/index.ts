@@ -245,6 +245,21 @@ client.ws.on("MESSAGE_CREATE", async (data: any) => {
   }
 });
 
+// ================= RESTART FLAG WATCHER =================
+const RESTART_FLAG_PATH = path.join(process.cwd(), "data", "restart.flag");
+let lastRestartFlagTime = 0;
+setInterval(() => {
+  try {
+    const s = fs.statSync(RESTART_FLAG_PATH);
+    if (s.mtimeMs > lastRestartFlagTime) {
+      lastRestartFlagTime = s.mtimeMs;
+      try { fs.unlinkSync(RESTART_FLAG_PATH); } catch {}
+      logger.warn("Restart flag detectado via web — reiniciando bot...");
+      setTimeout(() => process.exit(0), 1000);
+    }
+  } catch {}
+}, 5000);
+
 // ================= LOGIN =================
 client.login(config.DISCORD_TOKEN);
 

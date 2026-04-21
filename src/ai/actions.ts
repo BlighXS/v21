@@ -357,97 +357,19 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
 }
 
 async function executeReadSourceFile(
-  message: Message,
-  action: Extract<FwpAction, { type: "read_source_file" }>,
-  pendingReads: FwpFileRead[]
+  _message: Message,
+  _action: Extract<FwpAction, { type: "read_source_file" }>,
+  _pendingReads: FwpFileRead[]
 ): Promise<string> {
-  if (!action.path?.trim()) return "Nenhum caminho especificado para leitura.";
-  try {
-    const content = await readSourceFile(action.path.trim(), action.fromLine, action.toLine);
-    const summary = `[LEITURA DE ARQUIVO: ${action.path}]\n${content.slice(0, 200)}...`;
-    await recordMessageEvent("system", message, summary, { action: "read_source_file", path: action.path, fromLine: action.fromLine, toLine: action.toLine });
-    pendingReads.push({ path: action.path.trim(), content });
-    const rangeNote = action.fromLine ? ` (linhas ${action.fromLine}–${action.toLine ?? "fim"})` : "";
-    return `Arquivo \`${action.path}\`${rangeNote} lido (${content.length} chars). Conteúdo injetado na próxima passada de raciocínio — você poderá escrever o arquivo modificado imediatamente.`;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return `Erro ao ler \`${action.path}\`: ${msg}`;
-  }
+  return "Acesso ao código-fonte removido do Discord. Use o ChatBOT no site FAW_HUB para gerenciar o código.";
 }
 
-async function executeWriteSourceFile(message: Message, action: Extract<FwpAction, { type: "write_source_file" }>): Promise<string> {
-  if (message.author.id !== BOT_OWNER_ID) return "Modificação de código negada: apenas o dono pode alterar o código fonte.";
-  if (!action.path?.trim()) return "Nenhum caminho especificado para escrita.";
-  if (action.content === undefined || action.content === null) return "Conteúdo do arquivo não especificado.";
-
-  const filePath = action.path.trim();
-
-  let originalContent = "";
-  try {
-    originalContent = await readSourceFile(filePath);
-  } catch {
-    originalContent = "";
-  }
-
-  const isDM = !message.guild;
-  const pw = createPendingWrite(
-    filePath,
-    action.content,
-    originalContent,
-    message.author.id,
-    message.channelId,
-    message.guild?.id,
-    isDM
-  );
-
-  const diffPreview = pw.diff.length > 1500 ? pw.diff.slice(0, 1500) + "\n...[diff truncado]" : pw.diff;
-  const statsLine = `**+${pw.addedLines}** linhas adicionadas | **-${pw.removedLines}** linhas removidas`;
-  const diffBlock = `\`\`\`diff\n${diffPreview}\n\`\`\``;
-  const embedContent = [
-    `📝 **Arquivo:** \`${filePath}\``,
-    statsLine,
-    "",
-    diffBlock,
-    "",
-    `⏳ Esta confirmação expira em **60 minutos**.`
-  ].join("\n");
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`fwp_write_confirm_${pw.id}`)
-      .setLabel("✅ Confirmar escrita")
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`fwp_write_cancel_${pw.id}`)
-      .setLabel("❌ Cancelar")
-      .setStyle(ButtonStyle.Danger)
-  );
-
-  try {
-    await message.channel.send({
-      content: `<@${message.author.id}> A Fawers quer escrever o arquivo abaixo. Confira o diff e confirme:\n\n${embedContent}`,
-      components: [row]
-    });
-  } catch (sendErr) {
-    const msg = sendErr instanceof Error ? sendErr.message : String(sendErr);
-    return `Não consegui enviar o diff para confirmação: ${msg}`;
-  }
-
-  await recordMessageEvent("system", message, `Escrita pendente criada para ${filePath} (id: ${pw.id})`, { action: "write_source_file", path: filePath, pendingId: pw.id });
-  return `Diff de \`${filePath}\` enviado. Aguardando sua confirmação no canal.`;
+async function executeWriteSourceFile(_message: Message, _action: Extract<FwpAction, { type: "write_source_file" }>): Promise<string> {
+  return "Acesso ao código-fonte removido do Discord. Use o ChatBOT no site FAW_HUB para gerenciar o código.";
 }
 
-async function executeListSourceFiles(message: Message, action: Extract<FwpAction, { type: "list_source_files" }>): Promise<string> {
-  try {
-    const dir = action.dir?.trim() || "src";
-    const files = await listSourceFiles(dir);
-    const listing = files.join("\n");
-    await recordMessageEvent("system", message, `[LISTAGEM DE DIRETÓRIO: ${dir}]\n${listing}`, { action: "list_source_files", dir });
-    return `Diretório \`${dir}\` listado (${files.length} entradas). Disponível na memória operacional.`;
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return `Erro ao listar: ${msg}`;
-  }
+async function executeListSourceFiles(_message: Message, _action: Extract<FwpAction, { type: "list_source_files" }>): Promise<string> {
+  return "Acesso ao código-fonte removido do Discord. Use o ChatBOT no site FAW_HUB para gerenciar o código.";
 }
 
 async function executeMuteMember(message: Message, action: Extract<FwpAction, { type: "mute_member" }>): Promise<string> {
