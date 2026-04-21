@@ -7,7 +7,7 @@ import { createPendingWrite } from "./pendingWrites.js";
 import { config } from "../utils/config.js";
 import { safeFetch } from "../utils/net.js";
 import dns from "node:dns/promises";
-import { csShellExec, csWriteFile, csReadFile, csListFiles, csSendFile, aiFetch } from "./codespace.js";
+import { csShellExec, csWriteFile, csReadFile, csListFiles, csSendFile, aiFetch, csReloadCommands } from "./codespace.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -33,7 +33,8 @@ type FwpAction =
   | { type: "cs_write_file"; path?: string; content?: string }
   | { type: "cs_read_file"; path?: string }
   | { type: "cs_list_files"; dir?: string }
-  | { type: "cs_send_file"; path?: string };
+  | { type: "cs_send_file"; path?: string }
+  | { type: "cs_reload_commands" };
 
 export function stripFwpActionBlocks(text: string): string {
   return text
@@ -675,6 +676,13 @@ export async function executeFwpActions(message: Message, response: string): Pro
 
       if (action.type === "cs_send_file") {
         reports.push(await executeCsSendFile(message, action));
+        continue;
+      }
+
+      if (action.type === "cs_reload_commands") {
+        await csReloadCommands();
+        reports.push("Comandos serão recarregados. Reiniciando o bot...");
+        setTimeout(() => process.exit(0), 3000);
         continue;
       }
 

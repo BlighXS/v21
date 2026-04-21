@@ -5,6 +5,7 @@ import path from "node:path";
 import type { BotEvent } from "../utils/events.js";
 import { safeFetch } from "../utils/net.js";
 import { aiFetch } from "../ai/codespace.js";
+import { getPrefixCommand } from "../ai/commandRegistry.js";
 import { config } from "../utils/config.js";
 import { isAdminMember } from "../utils/permissions.js";
 import { logger } from "../utils/logger.js";
@@ -444,6 +445,17 @@ const event: BotEvent = {
     if (!command) return;
 
     await recordMessageEvent("command_received", message, content, { command, args: parts.join(" ") });
+
+    const csCmd = getPrefixCommand(command);
+    if (csCmd) {
+      try {
+        await csCmd.execute(message, parts);
+      } catch (err) {
+        logger.error({ err, command }, "Erro ao executar comando do codespace");
+        await message.reply(`Erro no comando \`${command}\`: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      return;
+    }
 
     if (command === "fw") {
       const sub = parts.shift()?.toLowerCase();

@@ -1,9 +1,13 @@
-import { readdir } from "node:fs/promises";
+import { readdir, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Client } from "discord.js";
 import type { SlashCommand } from "./types.js";
 import { logger } from "./logger.js";
+import { registerPrefixCommand, type PrefixCommand } from "../ai/commandRegistry.js";
+
+const CODESPACE_COMMANDS_DIR = path.join(process.cwd(), "src", "fawers_codespaces", "commands");
 
 export async function loadCommands(client: Client) {
   const commandsPath = path.join(process.cwd(), "src", "commands");
@@ -47,9 +51,58 @@ export async function loadCommands(client: Client) {
   }
 
   logger.info({ count: client.commands.size }, "Comandos carregados");
+
+  await loadCodespaceCommands(client);
 }
 
-// ================= WALK =================
+export async function loadCodespaceCommands(client: Client) {
+  if (!existsSync(CODESPACE_COMMANDS_DIR)) {
+    await mkdir(CODESPACE_COMMANDS_DIR, { recursive: true });
+    return;
+  }
+
+  let files: string[] = [];
+  try {
+    files = await walk(CODESPACE_COMMANDS_DIR);
+  } catch (err) {
+    logger.warn({ err }, "Erro ao ler pasta de comandos do codespace");
+    return;
+  }
+
+  const commandFiles = files.filter(
+    (f) => (f.endsWith(".js") || f.endsWith(".ts")) && !f.endsWith(".d.ts"),
+  );
+
+  let slashCount = 0;
+  let prefixCount = 0;
+
+  for (const file of commandFiles) {
+    try {
+      const url = pathToFileURL(file).toString();
+      const mod = await import(url);
+
+      if (mod.default?.data?.name) {
+        const command = mod.default as SlashCommand;
+        if (!client.commands.has(command.data.name)) {
+          client.commands.set(command.data.name, command);
+          slashCount++;
+        }
+      }
+
+      if (mod.prefixCommand?.trigger) {
+        const cmd = mod.prefixCommand as PrefixCommand;
+        registerPrefixCommand(cmd);
+        prefixCount++;
+      }
+    } catch (err) {
+      logger.error({ err, file }, "Erro ao carregar comando do codespace");
+    }
+  }
+
+  if (slashCount + prefixCount > 0) {
+    logger.info({ slashCount, prefixCount }, "Comandos do codespace carregados");
+  }
+}
 
 async function walk(dir: string): Promise<string[]> {
   let entries;

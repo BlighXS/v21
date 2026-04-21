@@ -63,9 +63,27 @@ export async function aiFetch(rawUrl: string, maxChars = AI_MAX_CHARS): Promise<
   }
 }
 
-const SHELL_TIMEOUT_MS = 30_000;
-const MAX_OUTPUT_CHARS = 6000;
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const SHELL_TIMEOUT_MS = 60_000;
+const MAX_OUTPUT_CHARS = 20_000;
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+
+const BLOCKED_SHELL_PATTERNS = [
+  /\brm\s+-[rf]/i,
+  /\brm\s+--recursive/i,
+  /\brmdir\s+/i,
+  /\bshred\s+/i,
+  /\btruncate\s+/i,
+  />\s*(\/dev\/null|\/dev\/zero)/,
+];
+
+function checkShellSafety(command: string): string | null {
+  for (const pattern of BLOCKED_SHELL_PATTERNS) {
+    if (pattern.test(command)) {
+      return `Comando bloqueado: não é permitido apagar ou destruir arquivos (pattern: ${pattern}). Você jamais pode deletar arquivos — apenas criar e editar.`;
+    }
+  }
+  return null;
+}
 
 async function ensureCodespaceDir(): Promise<void> {
   if (!existsSync(CODESPACE_DIR)) {
@@ -84,13 +102,16 @@ function resolveInsideCodespace(filePath: string): string {
 }
 
 export async function csShellExec(command: string): Promise<string> {
+  const safetyError = checkShellSafety(command);
+  if (safetyError) return safetyError;
+
   await ensureCodespaceDir();
   try {
     const { stdout, stderr } = await execAsync(command, {
       cwd: CODESPACE_DIR,
       timeout: SHELL_TIMEOUT_MS,
       shell: "/bin/bash",
-      env: { ...process.env, HOME: CODESPACE_DIR },
+      env: { ...process.env, HOME: CODESPACE_DIR, PATH: process.env.PATH + ":/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" },
     });
     const out = (stdout + (stderr ? `\n[stderr]\n${stderr}` : "")).trim();
     return out.length > MAX_OUTPUT_CHARS
@@ -98,9 +119,13 @@ export async function csShellExec(command: string): Promise<string> {
       : out || "(sem output)";
   } catch (err: any) {
     const out = ((err.stdout ?? "") + "\n" + (err.stderr ?? "")).trim();
-    const msg = err.signal === "SIGTERM" ? "Timeout — comando encerrado após 30s." : String(err.message ?? err);
-    return `[ERRO] ${msg}${out ? `\n${out.slice(0, 2000)}` : ""}`;
+    const msg = err.signal === "SIGTERM" ? "Timeout — comando encerrado após 60s." : String(err.message ?? err);
+    return `[ERRO] ${msg}${out ? `\n${out.slice(0, 4000)}` : ""}`;
   }
+}
+
+export async function csReloadCommands(): Promise<string> {
+  return "[RELOAD] Bot será reiniciado para carregar novos comandos em ~3s.";
 }
 
 export async function csWriteFile(filePath: string, content: string): Promise<string> {
