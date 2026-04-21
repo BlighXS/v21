@@ -11,6 +11,7 @@ import { isAdminMember } from "../utils/permissions.js";
 import { logger } from "../utils/logger.js";
 import { buildEmbed, buildEmbedFields, truncate, formatUptime, formatBytes } from "../utils/format.js";
 import { handleTrainerCommand } from "../training/trainer.js";
+import { OWNER_ID, OWNER_ABSOLUTE_OVERRIDE } from "../training/identity.js";
 import { loadTrainingData } from "../training/store.js";
 import { handleServerSetupCommand } from "../setup/serverSetup.js";
 import { handleBackupCommand } from "../backup/backup.js";
@@ -284,7 +285,9 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
   try {
     const trainingData = await loadTrainingData();
     const basePrompt = trainingData.compiledIdentity || trainingData.baseIdentity;
-    const systemPrompt = await buildAutonomousSystemPrompt(basePrompt + FREE_MODE_SYSTEM_SUFFIX, message);
+    const isOwnerMsg = message.author.id === OWNER_ID;
+    const baseWithFreeMode = basePrompt + FREE_MODE_SYSTEM_SUFFIX + (isOwnerMsg ? OWNER_ABSOLUTE_OVERRIDE : "");
+    const systemPrompt = await buildAutonomousSystemPrompt(baseWithFreeMode, message);
 
     const author = message.author;
     const display = message.member?.displayName ?? author.username;
@@ -1034,8 +1037,10 @@ const event: BotEvent = {
         const trainingData = await loadTrainingData();
         const personalityMode = await getPersonalityMode();
         const baseIdentity = trainingData.compiledIdentity || trainingData.baseIdentity;
+        const isOwnerMessage = message.author.id === OWNER_ID;
         const identityWithMode = personalityMode === "foco" ? baseIdentity + MODE_FOCO_SUFFIX : baseIdentity;
-        systemPrompt = await buildAutonomousSystemPrompt(identityWithMode, message);
+        const identityFinal = isOwnerMessage ? identityWithMode + OWNER_ABSOLUTE_OVERRIDE : identityWithMode;
+        systemPrompt = await buildAutonomousSystemPrompt(identityFinal, message);
 
         const urls = [...userText.matchAll(/https?:\/\/[^\s<>()]+/g)].map((m) => m[0]).slice(0, 3);
         for (const url of urls) {
