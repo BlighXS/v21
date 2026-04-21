@@ -5,6 +5,8 @@ import { readSourceFile, writeSourceFile, listSourceFiles } from "../utils/sysin
 import { generateImage } from "./imageGen.js";
 import { createPendingWrite } from "./pendingWrites.js";
 import { config } from "../utils/config.js";
+import { safeFetch } from "../utils/net.js";
+import dns from "node:dns/promises";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -23,7 +25,9 @@ type FwpAction =
   | { type: "generate_image"; prompt?: string; imageUrl?: string }
   | { type: "mute_member"; userId?: string; durationMinutes?: number; reason?: string }
   | { type: "send_message"; channelId?: string; channel?: string; userId?: string; content?: string }
-  | { type: "restart_self"; reason?: string };
+  | { type: "restart_self"; reason?: string }
+  | { type: "fetch_url"; url?: string; maxChars?: number }
+  | { type: "dns_lookup"; host?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text
@@ -356,6 +360,40 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
   }
 }
 
+async function executeFetchUrl(_message: Message, action: Extract<FwpAction, { type: "fetch_url" }>): Promise<string> {
+  if (!action.url?.trim()) return "fetch_url: nenhuma URL fornecida.";
+  try {
+    const content = await safeFetch(action.url.trim(), undefined, { allowAnyPublicDomain: true, maxChars: action.maxChars ?? 6000 });
+    return `[Conteúdo de ${action.url}]\n\`\`\`\n${content}\n\`\`\``;
+  } catch (err) {
+    return `fetch_url falhou para ${action.url}: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeDnsLookup(_message: Message, action: Extract<FwpAction, { type: "dns_lookup" }>): Promise<string> {
+  if (!action.host?.trim()) return "dns_lookup: nenhum host fornecido.";
+  const host = action.host.trim().replace(/^https?:\/\//, "").split("/")[0];
+  const results: string[] = [`[DNS Lookup: ${host}]`];
+  try {
+    const a = await dns.resolve4(host).catch(() => [] as string[]);
+    const aaaa = await dns.resolve6(host).catch(() => [] as string[]);
+    const mx = await dns.resolveMx(host).catch(() => [] as { priority: number; exchange: string }[]);
+    const ns = await dns.resolveNs(host).catch(() => [] as string[]);
+    const txt = await dns.resolveTxt(host).catch(() => [] as string[][]);
+    const cname = await dns.resolveCname(host).catch(() => [] as string[]);
+    if (a.length) results.push(`A: ${a.join(", ")}`);
+    if (aaaa.length) results.push(`AAAA: ${aaaa.join(", ")}`);
+    if (cname.length) results.push(`CNAME: ${cname.join(", ")}`);
+    if (ns.length) results.push(`NS: ${ns.join(", ")}`);
+    if (mx.length) results.push(`MX: ${mx.map(r => `${r.priority} ${r.exchange}`).join(", ")}`);
+    if (txt.length) results.push(`TXT: ${txt.map(r => r.join("")).join(" | ")}`);
+    if (results.length === 1) results.push("Nenhum registro encontrado.");
+  } catch (err) {
+    results.push(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  return results.join("\n");
+}
+
 async function executeReadSourceFile(
   _message: Message,
   _action: Extract<FwpAction, { type: "read_source_file" }>,
@@ -568,6 +606,16 @@ export async function executeFwpActions(message: Message, response: string): Pro
           continue;
         }
         reports.push(await executeRestartSelf(message, action));
+        continue;
+      }
+
+      if (action.type === "fetch_url") {
+        reports.push(await executeFetchUrl(message, action));
+        continue;
+      }
+
+      if (action.type === "dns_lookup") {
+        reports.push(await executeDnsLookup(message, action));
         continue;
       }
 

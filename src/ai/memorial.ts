@@ -281,6 +281,10 @@ export async function buildAutonomousSystemPrompt(basePrompt: string, message?: 
     "- Para guardar uma memória importante, inclua: [FWP_ACTION]{\"type\":\"remember\",\"content\":\"memória\"}[/FWP_ACTION]",
     "- Para gerar uma imagem nova: [FWP_ACTION]{\"type\":\"generate_image\",\"prompt\":\"descrição detalhada da imagem em inglês\"}[/FWP_ACTION]",
     "- Para EDITAR uma imagem que o usuário enviou (slim, change style, color, etc.): use o imageUrl da imagem enviada: [FWP_ACTION]{\"type\":\"generate_image\",\"prompt\":\"descrição da edição em inglês\",\"imageUrl\":\"URL_DA_IMAGEM_ENVIADA\"}[/FWP_ACTION]. SEMPRE use imageUrl quando o usuário enviar uma foto e pedir para editar/modificar ela.",
+    "- Para buscar o conteúdo de qualquer URL pública na internet: [FWP_ACTION]{\"type\":\"fetch_url\",\"url\":\"https://exemplo.com\"}[/FWP_ACTION] — use sempre que o usuário mencionar um link ou pedir para acessar um site. URLs de texto plano no chat (sem https://) também podem ser construídas por você.",
+    "- Para fazer lookup de DNS de um domínio (registros A, AAAA, MX, NS, TXT, CNAME): [FWP_ACTION]{\"type\":\"dns_lookup\",\"host\":\"exemplo.com\"}[/FWP_ACTION] — use quando o usuário pedir informações sobre DNS, whois de domínio, nameservers, registros de email, etc.",
+    "",
+    "ACESSO À INTERNET: Você TEM acesso à internet. Pode acessar qualquer URL pública com fetch_url e fazer lookups de DNS com dns_lookup. Nunca diga que não tem acesso à internet — você tem. IPs privados/locais são bloqueados por segurança, mas qualquer domínio/IP público é acessível.",
     "Nunca mostre o bloco FWP_ACTION como texto normal. Se uma ação falhar, a aplicação avisará o usuário.",
     "IMPORTANTE: Para ban/kick, o userId deve ser o ID numérico puro do Discord do alvo (ex: '123456789012345678'). Quando alguém mencionar um usuário com @, extraia o ID do contexto da mensagem."
   ].join("\n");
