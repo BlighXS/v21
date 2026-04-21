@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { BotEvent } from "../utils/events.js";
 import { safeFetch } from "../utils/net.js";
+import { aiFetch } from "../ai/codespace.js";
 import { config } from "../utils/config.js";
 import { isAdminMember } from "../utils/permissions.js";
 import { logger } from "../utils/logger.js";
@@ -1027,7 +1028,7 @@ const event: BotEvent = {
         const urls = [...userText.matchAll(/https?:\/\/[^\s<>()]+/g)].map((m) => m[0]).slice(0, 3);
         for (const url of urls) {
           try {
-            const webContent = await safeFetch(url, undefined, { allowAnyPublicDomain: true, maxChars: 7000 });
+            const webContent = await aiFetch(url, 7000);
             fullQuery += `\n\n[Conteúdo acessado da internet: ${url}]\n\`\`\`\n${webContent}\n\`\`\``;
             await recordMessageEvent("internet_fetch", message, `FWP acessou ${url}`, { url, ok: true });
           } catch (error) {

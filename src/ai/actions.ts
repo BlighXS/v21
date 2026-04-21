@@ -7,6 +7,7 @@ import { createPendingWrite } from "./pendingWrites.js";
 import { config } from "../utils/config.js";
 import { safeFetch } from "../utils/net.js";
 import dns from "node:dns/promises";
+import { csShellExec, csWriteFile, csReadFile, csListFiles, csSendFile, aiFetch } from "./codespace.js";
 
 const CHANNEL_CREATOR_ROLE_ID = "1493064608154652903";
 const BOT_OWNER_ID = "892469618063589387";
@@ -27,7 +28,12 @@ type FwpAction =
   | { type: "send_message"; channelId?: string; channel?: string; userId?: string; content?: string }
   | { type: "restart_self"; reason?: string }
   | { type: "fetch_url"; url?: string; maxChars?: number }
-  | { type: "dns_lookup"; host?: string };
+  | { type: "dns_lookup"; host?: string }
+  | { type: "shell_exec"; command?: string }
+  | { type: "cs_write_file"; path?: string; content?: string }
+  | { type: "cs_read_file"; path?: string }
+  | { type: "cs_list_files"; dir?: string }
+  | { type: "cs_send_file"; path?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text
@@ -363,7 +369,7 @@ async function executeKickMember(message: Message, action: Extract<FwpAction, { 
 async function executeFetchUrl(_message: Message, action: Extract<FwpAction, { type: "fetch_url" }>): Promise<string> {
   if (!action.url?.trim()) return "fetch_url: nenhuma URL fornecida.";
   try {
-    const content = await safeFetch(action.url.trim(), undefined, { allowAnyPublicDomain: true, maxChars: action.maxChars ?? 6000 });
+    const content = await aiFetch(action.url.trim(), action.maxChars ?? 8000);
     return `[Conteúdo de ${action.url}]\n\`\`\`\n${content}\n\`\`\``;
   } catch (err) {
     return `fetch_url falhou para ${action.url}: ${err instanceof Error ? err.message : String(err)}`;
@@ -392,6 +398,34 @@ async function executeDnsLookup(_message: Message, action: Extract<FwpAction, { 
     results.push(`Erro: ${err instanceof Error ? err.message : String(err)}`);
   }
   return results.join("\n");
+}
+
+async function executeShellExec(message: Message, action: Extract<FwpAction, { type: "shell_exec" }>): Promise<string> {
+  const command = action.command?.trim();
+  if (!command) return "shell_exec: nenhum comando fornecido.";
+  await recordMessageEvent("ai_action", message, `Shell exec no codespace: ${command.slice(0, 300)}`, { action: "shell_exec", command });
+  const output = await csShellExec(command);
+  return `\`\`\`\n$ ${command}\n${output}\n\`\`\``;
+}
+
+async function executeCsWriteFile(_message: Message, action: Extract<FwpAction, { type: "cs_write_file" }>): Promise<string> {
+  if (!action.path?.trim()) return "cs_write_file: path não fornecido.";
+  if (action.content === undefined) return "cs_write_file: content não fornecido.";
+  return csWriteFile(action.path.trim(), action.content);
+}
+
+async function executeCsReadFile(_message: Message, action: Extract<FwpAction, { type: "cs_read_file" }>): Promise<string> {
+  if (!action.path?.trim()) return "cs_read_file: path não fornecido.";
+  return csReadFile(action.path.trim());
+}
+
+async function executeCsListFiles(_message: Message, action: Extract<FwpAction, { type: "cs_list_files" }>): Promise<string> {
+  return csListFiles(action.dir?.trim() || ".");
+}
+
+async function executeCsSendFile(message: Message, action: Extract<FwpAction, { type: "cs_send_file" }>): Promise<string> {
+  if (!action.path?.trim()) return "cs_send_file: path não fornecido.";
+  return csSendFile(message, action.path.trim());
 }
 
 async function executeReadSourceFile(
@@ -616,6 +650,31 @@ export async function executeFwpActions(message: Message, response: string): Pro
 
       if (action.type === "dns_lookup") {
         reports.push(await executeDnsLookup(message, action));
+        continue;
+      }
+
+      if (action.type === "shell_exec") {
+        reports.push(await executeShellExec(message, action));
+        continue;
+      }
+
+      if (action.type === "cs_write_file") {
+        reports.push(await executeCsWriteFile(message, action));
+        continue;
+      }
+
+      if (action.type === "cs_read_file") {
+        reports.push(await executeCsReadFile(message, action));
+        continue;
+      }
+
+      if (action.type === "cs_list_files") {
+        reports.push(await executeCsListFiles(message, action));
+        continue;
+      }
+
+      if (action.type === "cs_send_file") {
+        reports.push(await executeCsSendFile(message, action));
         continue;
       }
 
