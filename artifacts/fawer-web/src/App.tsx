@@ -59,13 +59,15 @@ export default function App() {
           <div>
             <div
               style={{
-                fontFamily: "var(--mono)",
-                fontSize: "2rem",
+                fontFamily: '"Segoe Script", "Snell Roundhand", "Brush Script MT", cursive',
+                fontSize: "2.35rem",
                 fontWeight: 700,
                 color: "var(--text-bright)",
-                letterSpacing: "-0.02em",
+                letterSpacing: "0.02em",
                 lineHeight: 1,
                 marginBottom: 8,
+                transform: "rotate(-2deg)",
+                textShadow: "0 0 16px rgba(105, 255, 180, 0.16)",
               }}
             >
               FAW<span style={{ color: "var(--green)" }}>_</span>HUB
