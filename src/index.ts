@@ -19,20 +19,6 @@ import { loadEvents } from "./utils/loadEvents.js";
 import { logger } from "./utils/logger.js";
 import { config } from "./utils/config.js";
 
-// AI imports (removido dynamic import)
-import { loadTrainingData } from "./training/store.js";
-import { queryWithFallback } from "./ai/fallback.js";
-import { getProvider } from "./ai/providerConfig.js";
-import { clearUserMemory, migrateMemoryKeys } from "./ai/memory.js";
-import { buildEmbed, truncate } from "./utils/format.js";
-import { isFreeModeOwner } from "./ai/freeMode.js";
-import {
-  stripFwpActionBlocks,
-  buildFileReadFollowUp,
-  executeFwpActions,
-} from "./ai/actions.js";
-import { buildAutonomousSystemPrompt } from "./ai/memorial.js";
-
 // ================= ENV =================
 const fawEnvPath = path.join(process.cwd(), "faw.env");
 dotenv.config({
@@ -40,22 +26,15 @@ dotenv.config({
   override: true,
 });
 
-await migrateMemoryKeys().catch(() => {});
-
 // ================= INTENTS =================
-const intents = [
-  GatewayIntentBits.Guilds,
-  GatewayIntentBits.DirectMessages,
-  GatewayIntentBits.MessageContent,
-];
-
-if (config.ENABLE_PREFIX) {
-  intents.push(GatewayIntentBits.GuildMessages);
-}
-
-// ================= CLIENT =================
 const client = new Client({
-  intents,
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMembers,
+  ],
   partials: [Partials.Channel],
 });
 
@@ -65,226 +44,99 @@ client.commands = new Collection();
 await loadCommands(client);
 await loadEvents(client);
 
-// ================= SLASH =================
-if (config.DISCORD_CLIENT_ID) {
-  await registerSlashCommands();
-} else {
-  logger.warn("DISCORD_CLIENT_ID ausente");
-}
+// ================= PREFIX GUILD (ESSENCIAL) =================
+client.on("messageCreate", async (message) => {
+  try {
+    if (!message.guild) return; // ignora DM
+    if (message.author.bot) return;
 
-// ================= ERROR =================
-client.on("error", (err) => {
-  logger.error({ err }, "Discord client error");
+    const prefix = config.PREFIX;
+    if (!message.content.startsWith(prefix)) return;
+
+    const args = message.content.slice(prefix.length).trim().split(/ +/);
+    const cmdName = args.shift()?.toLowerCase();
+
+    const command = client.commands.get(cmdName);
+    if (!command) return;
+
+    await command.execute(message, args);
+  } catch (err) {
+    console.error("erro messageCreate:", err);
+  }
 });
 
-// ================= ANTI FLOOD =================
-const dmProcessing = new Map<string, number>();
+// ================= REGISTRO =================
+const UNREG_ROLE_ID = "1495985456943202327";
+const MEMBER_ROLE_ID_REG = "1493095650555068576";
+const TAG_ROLE_ID = "1495985457895309333";
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, time] of dmProcessing) {
-    if (now - time > 30000) dmProcessing.delete(id);
-  }
-}, 10000);
-
-// ================= DM HANDLER =================
-client.ws.on("MESSAGE_CREATE", async (data: any) => {
+client.on("interactionCreate", async (interaction) => {
   try {
-    if (data?.guild_id) return;
-    if (!data?.author || data.author.bot) return;
+    // Botão "Iniciar Registro" → abre modal
+    if (interaction.isButton() && interaction.customId === "faw_start_reg") {
+      const { ModalBuilder, TextInputBuilder, TextInputStyle } = await import("discord.js");
+      const modal = new ModalBuilder()
+        .setCustomId("faw_reg_modal")
+        .setTitle("CADASTRO OPERACIONAL");
 
-    const rawContent = data.content?.trim();
-    if (!rawContent) return;
+      const nickInput = new TextInputBuilder()
+        .setCustomId("reg_nick")
+        .setLabel("NICKNAME DESEJADO")
+        .setStyle(TextInputStyle.Short)
+        .setMinLength(2)
+        .setMaxLength(16)
+        .setRequired(true);
 
-    const msgId = data.id;
-    if (dmProcessing.has(msgId)) return;
-    dmProcessing.set(msgId, Date.now());
+      const tagInput = new TextInputBuilder()
+        .setCustomId("reg_tag_opt")
+        .setLabel("DESEJA A TAG [FAW] E COR ROXA? (SIM/NAO)")
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(3)
+        .setPlaceholder("SIM ou NAO")
+        .setRequired(true);
 
-    logger.info(
-      {
-        authorId: data.author.id,
-        content: rawContent.slice(0, 60),
-      },
-      "DM recebida",
-    );
-
-    const channel = await client.channels.fetch(data.channel_id);
-    if (!channel || !(channel instanceof DMChannel)) return;
-
-    const ch = channel;
-    const prefix = config.PREFIX;
-
-    // ================= COMMANDS =================
-
-    if (rawContent.startsWith(`${prefix}setup fwp`)) {
-      if (!isFreeModeOwner(data.author.id)) {
-        await ch.send({
-          embeds: [buildEmbed("Acesso negado", "Sem permissão.", "warn")],
-        });
-        return;
-      }
-
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId("fwp_model_beta")
-          .setLabel("Motor Beta")
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId("fwp_model_v2")
-          .setLabel("FAWER V2")
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId("fwp_model_v3")
-          .setLabel("FAWER V3")
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId("fwp_model_v4")
-          .setLabel("FAWER V4")
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId("fwp_model_v5")
-          .setLabel("FAWER V5")
-          .setStyle(ButtonStyle.Primary),
+      modal.addComponents(
+        new ActionRowBuilder<import("discord.js").TextInputBuilder>().addComponents(nickInput),
+        new ActionRowBuilder<import("discord.js").TextInputBuilder>().addComponents(tagInput),
       );
 
-      await ch.send({
-        embeds: [buildEmbed("Setup — Fawers", "Escolha a versão:", "info")],
-        components: [row],
+      return await interaction.showModal(modal);
+    }
+
+    // Envio do modal → processa registro
+    if (interaction.isModalSubmit() && interaction.customId === "faw_reg_modal") {
+      const nick = interaction.fields.getTextInputValue("reg_nick");
+      const wantTag = interaction.fields.getTextInputValue("reg_tag_opt").trim().toLowerCase() === "sim";
+      const member = interaction.member as any;
+
+      await interaction.deferReply({ ephemeral: true });
+
+      let finalNick = nick;
+      if (wantTag) {
+        finalNick = `FAW | ${nick}`;
+        await member.roles.add(TAG_ROLE_ID).catch(() => {});
+      }
+
+      await member.setNickname(finalNick).catch(() => {});
+      await member.roles.add(MEMBER_ROLE_ID_REG).catch(() => {});
+      await member.roles.remove(UNREG_ROLE_ID).catch(() => {});
+
+      return await interaction.editReply({
+        content: `✅ **Acesso Concedido!** Bem-vindo, **${finalNick}**. Todos os setores foram liberados.`,
       });
-      return;
-    }
-
-    if (rawContent === `${prefix}fwp limpar`) {
-      await clearUserMemory(data.author.id);
-      await ch.send({ embeds: [buildEmbed("Memória", "apagada.", "ok")] });
-      return;
-    }
-
-    // ================= AI =================
-
-    const trainingData = await loadTrainingData();
-    const baseIdentity =
-      trainingData.compiledIdentity || trainingData.baseIdentity;
-    const systemPrompt = await buildAutonomousSystemPrompt(baseIdentity).catch(
-      () => baseIdentity,
-    );
-    const memoryKey = data.author.id;
-
-    // typing seguro
-    let typing = true;
-    (async () => {
-      while (typing) {
-        await ch.sendTyping().catch(() => {});
-        await new Promise((r) => setTimeout(r, 8000));
-      }
-    })();
-
-    try {
-      const provider = await getProvider();
-      const contextualContent = `[Via DM]: ${rawContent}`;
-
-      const raw = await queryWithFallback(
-        provider,
-        systemPrompt,
-        memoryKey,
-        contextualContent,
-      );
-
-      const reply = stripFwpActionBlocks(raw)
-        .replace(/^\[SILENT\]/, "")
-        .trim();
-      if (reply) await ch.send(truncate(reply, 1900));
-
-      logger.info({ authorId: data.author.id }, "DM respondida");
-
-      const fullMsg = await ch.messages.fetch(data.id);
-
-      const firstPass = await executeFwpActions(fullMsg, raw);
-
-      for (const report of firstPass.reports) {
-        await ch.send(`> ${report}`).catch(() => {});
-      }
-
-      let pendingReads = firstPass.fileReads;
-
-      for (let pass = 0; pass < 6 && pendingReads.length > 0; pass++) {
-        const followUpQuery = buildFileReadFollowUp(pendingReads);
-
-        const followRaw = await queryWithFallback(
-          provider,
-          systemPrompt,
-          memoryKey,
-          followUpQuery,
-        );
-
-        const followPass = await executeFwpActions(fullMsg, followRaw);
-
-        const followReply = stripFwpActionBlocks(followRaw).trim();
-        if (followReply) await ch.send(truncate(followReply, 1900));
-
-        for (const report of followPass.reports) {
-          await ch.send(`> ${report}`).catch(() => {});
-        }
-
-        pendingReads = followPass.fileReads;
-      }
-    } catch (err) {
-      logger.error({ err }, "Erro AI");
-      const errMsg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-      const isOverload = errMsg.includes("503") || errMsg.includes("overloaded") || errMsg.includes("rate limit") || errMsg.includes("429");
-      await ch.send(
-        isOverload
-          ? "Todos os motores estão sobrecarregados no momento. Tenta de novo em instantes."
-          : "Ocorreu um erro interno ao processar sua mensagem. Tenta novamente."
-      ).catch(() => {});
-    } finally {
-      typing = false;
     }
   } catch (err) {
-    logger.error({ err }, "Erro geral DM");
+    console.error("Erro no registro:", err);
+    try {
+      const payload = { content: "❌ Falha no registro. Avise a staff.", flags: 64 };
+      if ((interaction as any).deferred || (interaction as any).replied) {
+        await (interaction as any).editReply(payload);
+      } else {
+        await (interaction as any).reply({ ...payload, ephemeral: true });
+      }
+    } catch {}
   }
 });
-
-// ================= RESTART FLAG WATCHER =================
-const RESTART_FLAG_PATH = path.join(process.cwd(), "data", "restart.flag");
-let lastRestartFlagTime = 0;
-setInterval(() => {
-  try {
-    const s = fs.statSync(RESTART_FLAG_PATH);
-    if (s.mtimeMs > lastRestartFlagTime) {
-      lastRestartFlagTime = s.mtimeMs;
-      try { fs.unlinkSync(RESTART_FLAG_PATH); } catch {}
-      logger.warn("Restart flag detectado via web — reiniciando bot...");
-      setTimeout(() => process.exit(0), 1000);
-    }
-  } catch {}
-}, 5000);
 
 // ================= LOGIN =================
 client.login(config.DISCORD_TOKEN);
-
-// ================= SLASH =================
-async function registerSlashCommands() {
-  const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-  const commandsJson = client.commands.map((cmd) => cmd.data.toJSON());
-
-  try {
-    if (config.DISCORD_GUILD_ID) {
-      await rest.put(
-        Routes.applicationGuildCommands(
-          config.DISCORD_CLIENT_ID,
-          config.DISCORD_GUILD_ID,
-        ),
-        { body: commandsJson },
-      );
-    } else {
-      await rest.put(Routes.applicationCommands(config.DISCORD_CLIENT_ID), {
-        body: commandsJson,
-      });
-    }
-
-    logger.info({ count: commandsJson.length }, "Slash OK");
-  } catch (error) {
-    logger.error({ error }, "Erro slash");
-  }
-}
