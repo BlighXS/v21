@@ -41,6 +41,28 @@ export async function appendToUserMemory(
   return history;
 }
 
+/**
+ * Anexa uma nota ao final da última mensagem do assistente já salva.
+ * Usado para registrar coisas que o bot fez DEPOIS da resposta inicial
+ * ser salva (ex.: imagens geradas via FWP_ACTION), garantindo que o bot
+ * lembre nas próximas mensagens o que foi gerado.
+ */
+export async function appendNoteToLastAssistantMessage(
+  userId: string,
+  note: string
+): Promise<void> {
+  if (!note.trim()) return;
+  const history = await loadUserMemory(userId);
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === "assistant") {
+      const sep = history[i].content.endsWith("\n") ? "" : "\n";
+      history[i].content = `${history[i].content}${sep}${note}`;
+      await saveUserMemory(userId, history);
+      return;
+    }
+  }
+}
+
 export async function clearUserMemory(userId: string): Promise<void> {
   await mkdir(MEMORY_DIR, { recursive: true });
   await writeFile(path.join(MEMORY_DIR, `${userId}.json`), "[]", "utf8");

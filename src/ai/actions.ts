@@ -51,6 +51,7 @@ export interface FwpFileRead {
 export interface FwpExecutionResult {
   reports: string[];
   fileReads: FwpFileRead[];
+  memoryNotes: string[];
 }
 
 /**
@@ -549,6 +550,7 @@ export async function executeFwpActions(message: Message, response: string): Pro
   const actions = extractActions(response);
   const reports: string[] = [];
   const fileReads: FwpFileRead[] = [];
+  const memoryNotes: string[] = [];
 
   const hasWriteActions = actions.some(a => a.type === "write_source_file");
 
@@ -621,7 +623,17 @@ export async function executeFwpActions(message: Message, response: string): Pro
       }
 
       if (action.type === "generate_image") {
-        reports.push(await executeGenerateImage(message, action));
+        const report = await executeGenerateImage(message, action);
+        reports.push(report);
+        if (report === "Imagem gerada e enviada." && action.prompt?.trim()) {
+          const promptShort = action.prompt.trim().slice(0, 400);
+          const isEdit = !!action.imageUrl?.trim();
+          memoryNotes.push(
+            isEdit
+              ? `[IMAGEM_GERADA_POR_MIM] Editei a imagem que o usuário enviou. Edição aplicada (em inglês): "${promptShort}". A imagem editada foi enviada no chat — se o usuário pedir mais alterações, me refira a essa edição.`
+              : `[IMAGEM_GERADA_POR_MIM] Gerei e enviei uma imagem no chat. Prompt usado (em inglês): "${promptShort}". Lembre-se desta imagem se o usuário fizer perguntas, pedir variações ou edições.`
+          );
+        }
         continue;
       }
 
@@ -700,7 +712,7 @@ export async function executeFwpActions(message: Message, response: string): Pro
     }
   }
 
-  return { reports, fileReads };
+  return { reports, fileReads, memoryNotes };
 }
 
 export function buildFileReadFollowUp(fileReads: FwpFileRead[]): string {

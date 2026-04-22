@@ -17,7 +17,7 @@ import { handleServerSetupCommand } from "../setup/serverSetup.js";
 import { handleBackupCommand } from "../backup/backup.js";
 import { searchTracks } from "../music/spotify.js";
 import { getMusicQueue, playYoutubeMusic, skipMusic, stopMusic } from "../music/player.js";
-import { loadUserMemory, appendToUserMemory, clearUserMemory } from "../ai/memory.js";
+import { loadUserMemory, appendToUserMemory, clearUserMemory, appendNoteToLastAssistantMessage } from "../ai/memory.js";
 import { extractCodeBlocks, hasCodeBlocks, createZip, readAttachmentText, isTextAttachment, isImageAttachment } from "../ai/fileOps.js";
 import { downloadAndParsePE, formatPEReport, buildStringsAttachment, isPEFile } from "../ai/binaryAnalysis.js";
 import { resolveProjectType, getProjectTemplate } from "../ai/projectTemplates.js";
@@ -312,6 +312,7 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
 
     const firstPass = await executeFwpActions(message, rawReply);
     let allReports = [...firstPass.reports];
+    let allMemoryNotes = [...firstPass.memoryNotes];
     let finalRawReply = rawReply;
 
     let pendingReads = firstPass.fileReads;
@@ -322,6 +323,7 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
         const followRaw = await queryOllama(systemPrompt, memoryKey, followUpQuery);
         const followPass = await executeFwpActions(message, followRaw);
         allReports = [...allReports, ...followPass.reports];
+        allMemoryNotes = [...allMemoryNotes, ...followPass.memoryNotes];
         if (!stripFwpActionBlocks(followRaw).startsWith("[SILENT]")) {
           finalRawReply = followRaw;
         }
@@ -334,6 +336,10 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
     }
 
     const reply = stripFwpActionBlocks(finalRawReply);
+
+    if (allMemoryNotes.length > 0) {
+      await appendNoteToLastAssistantMessage(memoryKey, allMemoryNotes.join("\n")).catch(() => {});
+    }
 
     await spinnerMsg.delete().catch(() => {});
 
@@ -1087,6 +1093,7 @@ const event: BotEvent = {
 
         const firstPass = await executeFwpActions(message, rawResponse);
         let allReports = [...firstPass.reports];
+        let allMemoryNotes = [...firstPass.memoryNotes];
         let finalRawResponse = rawResponse;
 
         if (firstPass.fileReads.length > 0) {
@@ -1095,12 +1102,17 @@ const event: BotEvent = {
             const secondRaw = await queryFwp(systemPrompt, message.author.id, followUpQuery);
             const secondPass = await executeFwpActions(message, secondRaw);
             allReports = [...allReports, ...secondPass.reports];
+            allMemoryNotes = [...allMemoryNotes, ...secondPass.memoryNotes];
             if (!stripFwpActionBlocks(secondRaw).startsWith("[SILENT]")) {
               finalRawResponse = secondRaw;
             }
           } catch (err) {
             logger.warn({ err }, "FWP: segunda passada de leitura falhou");
           }
+        }
+
+        if (allMemoryNotes.length > 0) {
+          await appendNoteToLastAssistantMessage(message.author.id, allMemoryNotes.join("\n")).catch(() => {});
         }
 
         const response = stripFwpActionBlocks(finalRawResponse);
