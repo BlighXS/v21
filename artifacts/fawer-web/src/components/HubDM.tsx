@@ -3,15 +3,28 @@ import type { MeData } from "../hooks/useMe";
 
 interface HubUser {
   userId: string;
+  name: string;
+  avatar: string | null;
   messageCount: number;
   lastActivity: string | null;
   lastPreview: string | null;
+  inGuild: boolean;
+  hasMemory: boolean;
+}
+
+interface MsgAttachment {
+  url: string;
+  filename?: string;
+  type?: string;
 }
 
 interface MemoryEntry {
+  id?: string;
   role: string;
   content: string;
   timestamp?: string;
+  attachments?: MsgAttachment[];
+  source?: "memory" | "discord";
 }
 
 const S = {
@@ -236,35 +249,83 @@ export default function HubDM({ me }: { me: MeData | null }) {
   const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
+  const [selectedMeta, setSelectedMeta] = useState<{ name: string; avatar: string | null } | null>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
 
-  // Acesso liberado: quem abre o site, abre o painel.
-  const isOwner = true;
   void me;
 
+  // Poll users list every 15s
   useEffect(() => {
-    fetch("/api/hub/users", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d: { users?: HubUser[] }) => setUsers(d.users ?? []))
-      .catch(() => setUsers([]))
-      .finally(() => setLoadingUsers(false));
-  }, [isOwner]);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/hub/users", { credentials: "include" });
+        const d = (await r.json()) as { users?: HubUser[] };
+        if (!cancelled) setUsers(d.users ?? []);
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setLoadingUsers(false);
+      }
+    };
+    load();
+    const id = setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
+  // Poll conversation every 5s when a user is selected
   useEffect(() => {
-    if (!selectedId) return;
-    setLoadingConv(true);
-    setConversation([]);
-    fetch(`/api/hub/conversation/${selectedId}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((d: { messages?: MemoryEntry[] }) => setConversation(d.messages ?? []))
-      .catch(() => setConversation([]))
-      .finally(() => setLoadingConv(false));
+    if (!selectedId) {
+      setConversation([]);
+      setSelectedMeta(null);
+      return;
+    }
+    let cancelled = false;
+    let firstLoad = true;
+    const load = async () => {
+      if (firstLoad) setLoadingConv(true);
+      try {
+        const r = await fetch(`/api/hub/conversation/${selectedId}`, { credentials: "include" });
+        const d = (await r.json()) as {
+          messages?: MemoryEntry[];
+          name?: string;
+          avatar?: string | null;
+        };
+        if (cancelled) return;
+        setConversation(d.messages ?? []);
+        setSelectedMeta({ name: d.name ?? selectedId, avatar: d.avatar ?? null });
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled && firstLoad) {
+          setLoadingConv(false);
+          firstLoad = false;
+        }
+      }
+    };
+    load();
+    const id = setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [selectedId]);
 
   useEffect(() => {
-    if (historyRef.current) {
+    if (autoScroll && historyRef.current) {
       historyRef.current.scrollTop = historyRef.current.scrollHeight;
     }
-  }, [conversation]);
+  }, [conversation, autoScroll]);
+
+  const handleScroll = () => {
+    const el = historyRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    setAutoScroll(atBottom);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -330,13 +391,20 @@ export default function HubDM({ me }: { me: MeData | null }) {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();
   };
 
-  const filtered = users.filter(
-    (u) =>
-      u.userId.includes(search) ||
-      (u.lastPreview ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const q = search.toLowerCase().trim();
+  const filtered = q
+    ? users.filter(
+        (u) =>
+          u.userId.includes(q) ||
+          u.name.toLowerCase().includes(q) ||
+          (u.lastPreview ?? "").toLowerCase().includes(q),
+      )
+    : users;
 
   const selected = users.find((u) => u.userId === selectedId) ?? null;
+  const selectedName = selectedMeta?.name || selected?.name || selectedId || "";
+  const selectedAvatar = selectedMeta?.avatar || selected?.avatar || null;
+  const memCount = users.filter((u) => u.hasMemory).length;
 
   return (
     <div id="hub-dm">
@@ -357,7 +425,10 @@ export default function HubDM({ me }: { me: MeData | null }) {
       <div style={S.panel}>
         <div style={S.header}>
           <div style={S.dot(!loadingUsers)} />
-          DM_BROADCASTER · {users.length} USUÁRIO{users.length !== 1 ? "S" : ""} NO HISTÓRICO
+          DM_BROADCASTER · {memCount} COM HISTÓRICO · {users.length} TOTAL
+          <span style={{ marginLeft: "auto", opacity: 0.6, fontSize: "0.55rem" }}>
+            ⟳ AUTO 5s
+          </span>
         </div>
 
         <div style={S.body}>
@@ -387,11 +458,42 @@ export default function HubDM({ me }: { me: MeData | null }) {
                   key={u.userId}
                   style={S.userItem(u.userId === selectedId)}
                   onClick={() => setSelectedId(u.userId)}
+                  title={u.userId}
                 >
-                  <div style={S.userId}>{u.userId}</div>
-                  <div style={S.userMeta}>{u.messageCount} msgs</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {u.avatar ? (
+                      <img
+                        src={u.avatar}
+                        alt=""
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: "50%",
+                          border: "1px solid var(--border-dim)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: "50%",
+                          background: "var(--bg1)",
+                          border: "1px solid var(--border-dim)",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={S.userId}>{u.name}</div>
+                      <div style={S.userMeta}>
+                        {u.hasMemory ? `${u.messageCount} msgs` : "sem histórico"}
+                      </div>
+                    </div>
+                  </div>
                   {u.lastPreview && (
-                    <div style={{ ...S.userMeta, marginTop: 2, opacity: 0.75 }}>
+                    <div style={{ ...S.userMeta, marginTop: 4, opacity: 0.75 }}>
                       {u.lastPreview.slice(0, 50)}…
                     </div>
                   )}
@@ -406,35 +508,135 @@ export default function HubDM({ me }: { me: MeData | null }) {
               <div style={S.emptyState}>← SELECIONE UM USUÁRIO</div>
             ) : (
               <>
+                {/* Chat header com avatar */}
+                <div
+                  style={{
+                    padding: "8px 14px",
+                    borderBottom: "1px solid var(--border-dim)",
+                    background: "var(--bg1)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  {selectedAvatar && (
+                    <img
+                      src={selectedAvatar}
+                      alt=""
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        border: "1px solid var(--border-dim)",
+                      }}
+                    />
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        color: "var(--text-bright)",
+                      }}
+                    >
+                      {selectedName}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.55rem",
+                        color: "var(--text-dim)",
+                        opacity: 0.8,
+                      }}
+                    >
+                      ID: {selectedId}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Chat history */}
-                <div ref={historyRef} style={S.chatHistory}>
+                <div ref={historyRef} style={S.chatHistory} onScroll={handleScroll}>
                   {loadingConv && (
                     <div style={{ ...S.emptyState, margin: "auto" }}>CARREGANDO...</div>
                   )}
                   {!loadingConv && conversation.length === 0 && (
-                    <div style={{ ...S.emptyState, margin: "auto" }}>SEM HISTÓRICO</div>
-                  )}
-                  {conversation.map((m, i) => (
-                    <div key={i} style={S.bubble(m.role)}>
-                      <div style={S.bubbleRole(m.role)}>
-                        {m.role === "user" ? `USER · ${selected?.userId ?? ""}` : "FAWERS"}
-                      </div>
-                      <div style={S.bubbleContent}>{m.content}</div>
-                      {m.timestamp && (
-                        <div
-                          style={{
-                            fontFamily: "var(--mono)",
-                            fontSize: "0.52rem",
-                            color: "var(--text-dim)",
-                            marginTop: 4,
-                            opacity: 0.7,
-                          }}
-                        >
-                          {new Date(m.timestamp).toLocaleString("pt-BR")}
-                        </div>
-                      )}
+                    <div style={{ ...S.emptyState, margin: "auto" }}>
+                      SEM HISTÓRICO · ENVIE A PRIMEIRA MENSAGEM
                     </div>
-                  ))}
+                  )}
+                  {conversation.map((m, i) => {
+                    const isUser = m.role === "user";
+                    const cleanContent = isUser
+                      ? m.content.replace(/^\[Canal:[^\]]+\]\s*/, "")
+                      : m.content;
+                    return (
+                      <div key={m.id ?? i} style={S.bubble(m.role)}>
+                        <div style={S.bubbleRole(m.role)}>
+                          {isUser ? `${selectedName.toUpperCase()}` : "FAWERS"}
+                          {m.source === "discord" && (
+                            <span style={{ marginLeft: 6, opacity: 0.55 }}>· DM</span>
+                          )}
+                          {m.source === "memory" && (
+                            <span style={{ marginLeft: 6, opacity: 0.55 }}>· LOG</span>
+                          )}
+                        </div>
+                        {cleanContent && (
+                          <div style={S.bubbleContent}>{cleanContent}</div>
+                        )}
+                        {m.attachments?.map((a, ai) => {
+                          const isImg =
+                            a.type?.startsWith("image/") ||
+                            /\.(png|jpe?g|gif|webp)$/i.test(a.filename ?? a.url);
+                          return isImg ? (
+                            <a key={ai} href={a.url} target="_blank" rel="noreferrer">
+                              <img
+                                src={a.url}
+                                alt={a.filename ?? ""}
+                                style={{
+                                  maxWidth: 220,
+                                  maxHeight: 220,
+                                  borderRadius: 2,
+                                  border: "1px solid var(--border-dim)",
+                                  marginTop: 6,
+                                  display: "block",
+                                }}
+                              />
+                            </a>
+                          ) : (
+                            <a
+                              key={ai}
+                              href={a.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                fontFamily: "var(--mono)",
+                                fontSize: "0.6rem",
+                                color: "var(--green)",
+                                marginTop: 4,
+                                display: "inline-block",
+                              }}
+                            >
+                              📎 {a.filename ?? "anexo"}
+                            </a>
+                          );
+                        })}
+                        {m.timestamp && (
+                          <div
+                            style={{
+                              fontFamily: "var(--mono)",
+                              fontSize: "0.52rem",
+                              color: "var(--text-dim)",
+                              marginTop: 4,
+                              opacity: 0.7,
+                            }}
+                          >
+                            {new Date(m.timestamp).toLocaleString("pt-BR")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Composer */}

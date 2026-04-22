@@ -185,6 +185,17 @@ Provider padrão: **gemini-v3** (quando não configurado manualmente)
 - `GUILD_MESSAGES` (se `ENABLE_PREFIX=true`)
 - `MESSAGE_CONTENT` (se `ENABLE_PREFIX=true`)
 
+## Painel HUB_DM (FAWER AI Web)
+
+Painel de DMs sem login — qualquer um com acesso ao site usa.
+
+- Botão **ACESSO DM** no header rola até `#hub-dm`.
+- `GET /api/hub/users` — junta usuários com memória local + todos os membros do guild (`DISCORD_GUILD_ID`), com nome e avatar do Discord. Cache de membros: 60s. Polling no frontend a cada 15s.
+- `GET /api/hub/conversation/:userId` — junta `data/memory/{id}.json` + histórico real do canal DM via Discord API (últimas 100 msgs). Dedupe por `role+conteúdo+timestamp(min)`. Polling a cada 5s.
+- `POST /api/hub/dm` e `POST /api/hub/dm/image` — envia como o bot.
+- Anexos (imagens) são renderizados inline na bolha; outros anexos viram link.
+- Auto-scroll só quando o usuário está no fundo da timeline.
+
 ## Scripts
 
 - `pnpm run dev` — executa o bot com tsx (desenvolvimento)
