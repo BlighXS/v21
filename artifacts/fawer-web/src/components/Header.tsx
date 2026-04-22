@@ -76,7 +76,7 @@ export default function Header({ apiOnline }: Props) {
       </div>
 
       {/* Nav */}
-      <nav style={{ display: "flex", gap: 4 }}>
+      <nav style={{ display: "flex", gap: 4, alignItems: "center" }}>
         {[
           { label: "STATUS", href: "#status" },
           { label: "MÓDULOS", href: "#modules" },
@@ -111,6 +111,54 @@ export default function Header({ apiOnline }: Props) {
             {item.label}
           </a>
         ))}
+
+        {/* Botão de destaque — ACESSO DM */}
+        <a
+          href="#hub-dm"
+          onClick={(e) => {
+            e.preventDefault();
+            const el = document.getElementById("hub-dm");
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: "0.65rem",
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            color: "var(--green)",
+            textDecoration: "none",
+            padding: "6px 14px",
+            marginLeft: 8,
+            border: "1px solid var(--green)",
+            borderRadius: "2px",
+            background: "rgba(105, 255, 180, 0.08)",
+            boxShadow: "0 0 10px rgba(105, 255, 180, 0.25)",
+            transition: "all 0.15s",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.background = "rgba(105, 255, 180, 0.18)";
+            (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 0 18px rgba(105, 255, 180, 0.55)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.background = "rgba(105, 255, 180, 0.08)";
+            (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 0 10px rgba(105, 255, 180, 0.25)";
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "var(--green)",
+              boxShadow: "0 0 6px var(--green)",
+              display: "inline-block",
+            }}
+          />
+          ACESSO DM
+        </a>
       </nav>
     </header>
   );

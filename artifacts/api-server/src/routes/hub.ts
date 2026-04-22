@@ -1,7 +1,6 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router } from "express";
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
-import { getSession } from "../lib/session.js";
 
 const router = Router();
 
@@ -9,23 +8,8 @@ const MEMORY_DIR = process.env.MEMORY_DIR
   ? process.env.MEMORY_DIR
   : join(process.cwd(), "../../data/memory");
 const BOT_TOKEN = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN || "";
-const OWNER_IDS = (process.env.OWNER_IDS || process.env.OWNER_ID || "892469618063589387")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-function requireOwner(req: Request, res: Response, next: NextFunction): void {
-  const session = getSession(req);
-  if (!session || session.type !== "discord") {
-    res.status(401).json({ error: "Não autenticado." });
-    return;
-  }
-  if (!OWNER_IDS.includes(session.discordId ?? "")) {
-    res.status(403).json({ error: "Acesso negado. Apenas o dono do Hub pode usar isso." });
-    return;
-  }
-  next();
-}
+// Acesso público ao Hub: quem tem o site, tem o painel.
+// (Mantido sem requireOwner para permitir leitura/envio de DMs sem login.)
 
 interface MemoryEntry {
   role: string;
@@ -57,7 +41,7 @@ async function openDmChannel(userId: string): Promise<string> {
   return data.id;
 }
 
-router.get("/users", requireOwner, async (_req, res) => {
+router.get("/users", async (_req, res) => {
   try {
     const files = await readdir(MEMORY_DIR);
     const jsonFiles = files.filter((f) => f.endsWith(".json") && !f.startsWith("global") && !f.startsWith("provider"));
@@ -94,7 +78,7 @@ router.get("/users", requireOwner, async (_req, res) => {
   }
 });
 
-router.get("/conversation/:userId", requireOwner, async (req, res) => {
+router.get("/conversation/:userId", async (req, res) => {
   try {
     const filePath = join(MEMORY_DIR, `${req.params.userId}.json`);
     const raw = await readFile(filePath, "utf-8");
@@ -105,7 +89,7 @@ router.get("/conversation/:userId", requireOwner, async (req, res) => {
   }
 });
 
-router.post("/dm", requireOwner, async (req, res) => {
+router.post("/dm", async (req, res) => {
   const { userId, content } = req.body as { userId?: string; content?: string };
 
   if (!userId?.trim() || !content?.trim()) {
@@ -138,7 +122,7 @@ router.post("/dm", requireOwner, async (req, res) => {
   }
 });
 
-router.post("/dm/image", requireOwner, async (req, res) => {
+router.post("/dm/image", async (req, res) => {
   const { userId, base64, filename, caption } = req.body as {
     userId?: string;
     base64?: string;
