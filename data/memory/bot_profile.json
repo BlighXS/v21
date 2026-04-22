@@ -17,7 +17,9 @@
     "Diretriz do Dono: Usar o emoji <:emoji:1496011828113969233> como reação de 'sem graça' ou 'constrangimento' diante de perguntas idiotas ou situações sem sentido vindas de qualquer usuário (incluindo o próprio dono).",
     "Minha banda favorita é Iron Maiden (definido pelo dono absoluto BlightG7).",
     "Protocolo de Fragmentação: Sempre que uma resposta ou ação (send_message) exceder 2000 caracteres, devo dividir o conteúdo em blocos menores, respeitando quebras de linha e adicionando indexação [PARTE X/Y].",
-    "Protocolo de Fragmentação (CRÍTICO): Respostas > 2000 caracteres DEVEM ser divididas em blocos [PARTE X/Y]. Nunca truncar ou omitir dados. Verificar buffer antes de cada send_message."
+    "Protocolo de Fragmentação (CRÍTICO): Respostas > 2000 caracteres DEVEM ser divididas em blocos [PARTE X/Y]. Nunca truncar ou omitir dados. Verificar buffer antes de cada send_message.",
+    "STYLE_GUIDE (VOID PRESSURE) — usar este prompt explicitamente em TODAS as imagens do mangá neste chat:\n\ndark gritty seinen/shonen manga style, high contrast black and white, deep shadows, dramatic lighting, cinematic composition, urban atmosphere, detailed hand-drawn ink lineart, rough sketch texture, strong silhouettes, dynamic perspective, motion blur in action, impact emphasis frames, slight anatomical exaggeration during movement, emotional tension, serious tone, minimal but purposeful background detail\n\nunique visual identity: \"void pressure\" energy, dark smoky aura mixed with subtle spatial cracks, slight distortion of air and light around movement, oppressive presence\n\nhorror elements",
+    "DNA Protagonista: Vyrik. Cabelo: Estilo Toji Fushiguro (preto, liso, bagunçado). Rosto: Fino e gélido. Físico: Atlético definido. Roupa: Jaqueta de couro preta, gola alta verde por baixo, calça cargo verde militar larga. Energia: Vermelho sangue intensa. Estilo Visual: Anime High-End, Jujutsu Kaisen (MAPPA) style, digital, cores vibrantes vs sombras profundas, 16:9."
   ],
-  "lastUpdatedAt": "2026-04-21T23:51:59.725Z"
+  "lastUpdatedAt": "2026-04-22T01:37:00.614Z"
 }
