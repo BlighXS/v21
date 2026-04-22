@@ -9,7 +9,7 @@ import { getPrefixCommand } from "../ai/commandRegistry.js";
 import { config } from "../utils/config.js";
 import { isAdminMember } from "../utils/permissions.js";
 import { logger } from "../utils/logger.js";
-import { buildEmbed, buildEmbedFields, truncate, formatUptime, formatBytes } from "../utils/format.js";
+import { buildEmbed, buildEmbedFields, truncate, formatUptime, formatBytes, chunkForDiscord, sendChunkedReply } from "../utils/format.js";
 import { handleTrainerCommand } from "../training/trainer.js";
 import { OWNER_ID, OWNER_ABSOLUTE_OVERRIDE } from "../training/identity.js";
 import { loadTrainingData } from "../training/store.js";
@@ -343,7 +343,7 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
     }
 
     const finalReply = allReports.length > 0 ? `${reply}\n\n${allReports.join("\n")}` : reply;
-    await message.channel.send(truncate(finalReply, 1900));
+    await sendChunkedReply(message, finalReply, { useReply: false });
     logger.info({ channel: message.channelId, author: author.id }, "Free mode: resposta enviada");
   } catch (err) {
     logger.error({ err }, "Free mode: falha ao gerar resposta");
@@ -412,7 +412,7 @@ async function handleDM(message: import("discord.js").Message): Promise<boolean>
       );
       const reply = stripFwpActionBlocks(raw);
       if (!reply.startsWith("[SILENT]")) {
-        await message.reply(truncate(reply, 1900));
+        await sendChunkedReply(message, reply, { useReply: true });
       }
     } finally {
       clearInterval(typingInterval);
@@ -835,7 +835,7 @@ const event: BotEvent = {
         try {
           const intro = await queryOllama(systemPrompt, memoryKey, "Você acabou de ser liberada para falar livremente neste canal. Diga algo breve para marcar sua presença.");
           if (intro && !intro.startsWith("[SILENT]")) {
-            await message.channel.send(truncate(intro, 1900));
+            await sendChunkedReply(message, intro, { useReply: false });
           }
         } catch {
           // intro opcional, falha silenciosa
@@ -1119,11 +1119,18 @@ const event: BotEvent = {
         }
 
         const finalResponse = allReports.length > 0 ? `${response}\n\n${allReports.join("\n")}` : response;
-        const trimmed = truncate(finalResponse, 1900);
-        const embed = buildEmbed("Fawers", trimmed, "action");
+        const embedChunks = chunkForDiscord(finalResponse, 4000);
+        const embed = buildEmbed("Fawers", embedChunks[0] ?? "", "action");
 
         await spinnerMsg.delete().catch(() => {});
         await message.reply({ embeds: [embed], files });
+        // Se a resposta passou do limite do embed, manda o restante em mensagens normais quebradas
+        for (let i = 1; i < embedChunks.length; i++) {
+          const tail = chunkForDiscord(embedChunks[i], 1900);
+          for (let j = 0; j < tail.length; j++) {
+            await message.channel.send(`${tail[j]}\n*(parte ${i + j + 1}/${embedChunks.length + tail.length - 1})*`).catch(() => {});
+          }
+        }
         logger.info({ command: "fwp", durationMs: Date.now() - start, files: files.length }, "Fwp executado");
       } catch (error) {
         let msg = formatFwpError(error);
