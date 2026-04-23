@@ -92,3 +92,9 @@ externalPort = 3002
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+BOT_OWNER_ID = "892469618063589387"
+CHANNEL_CREATOR_ROLE_ID = "1493064608154652903"
