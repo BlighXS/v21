@@ -30,6 +30,16 @@ function isTransientError(err: unknown): boolean {
   );
 }
 
+function isQuotaError(err: unknown): boolean {
+  const msg = String(err).toLowerCase();
+  return (
+    msg.includes("free tier monthly spend limit exceeded") ||
+    msg.includes("budget exceeded") ||
+    msg.includes("quota exceeded") ||
+    msg.includes("403")
+  );
+}
+
 async function queryWithProvider(
   provider: AIProvider,
   systemPrompt: string,
@@ -56,10 +66,9 @@ export async function queryWithFallback(
   memoryKey: string,
   userQuery: string
 ): Promise<string> {
-  const chain: AIProvider[] = [
-    primaryProvider,
-    ...CLOUD_CHAIN.filter((p) => p !== primaryProvider),
-  ].filter((p) => p !== "ollama");
+  const chain: AIProvider[] = primaryProvider === "ollama"
+    ? ["ollama", ...CLOUD_CHAIN]
+    : [primaryProvider, ...CLOUD_CHAIN.filter((p) => p !== primaryProvider), "ollama"];
 
   let lastError: unknown;
 
@@ -72,6 +81,11 @@ export async function queryWithFallback(
       return result;
     } catch (err) {
       lastError = err;
+
+      if (isQuotaError(err) && provider !== "ollama") {
+        logger.warn({ provider, err: String(err) }, "Fallback: limite/quota do cloud atingido, tentando Ollama local");
+        continue;
+      }
 
       if (isContextError(err)) {
         logger.warn({ provider, err: String(err) }, "Fallback: contexto muito grande, pulando para o próximo motor");
