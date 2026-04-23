@@ -37,6 +37,7 @@ export interface BotProfile {
   biography: string;
   autonomy: string[];
   preferences: string[];
+  repositoryRoots: string[];
   lastUpdatedAt: string;
 }
 
@@ -53,6 +54,7 @@ const DEFAULT_PROFILE: BotProfile = {
     "Ser objetiva, técnica e transparente sobre o que sabe, fez ou não conseguiu fazer.",
     "Não fingir que executou uma ação: registrar sucesso ou falha."
   ],
+  repositoryRoots: ["."],
   lastUpdatedAt: new Date(0).toISOString()
 };
 
@@ -76,6 +78,7 @@ export async function loadBotProfile(): Promise<BotProfile> {
       biography: parsed.biography?.trim() || DEFAULT_PROFILE.biography,
       autonomy: Array.isArray(parsed.autonomy) && parsed.autonomy.length > 0 ? parsed.autonomy : DEFAULT_PROFILE.autonomy,
       preferences: Array.isArray(parsed.preferences) && parsed.preferences.length > 0 ? parsed.preferences : DEFAULT_PROFILE.preferences,
+      repositoryRoots: Array.isArray(parsed.repositoryRoots) && parsed.repositoryRoots.length > 0 ? parsed.repositoryRoots : DEFAULT_PROFILE.repositoryRoots,
       lastUpdatedAt: parsed.lastUpdatedAt || new Date().toISOString()
     };
   } catch {
@@ -109,6 +112,17 @@ export async function addBotPreference(preference: string): Promise<BotProfile> 
   const updated: BotProfile = {
     ...profile,
     preferences: [...profile.preferences.filter((p) => p !== value), value].slice(-30),
+    lastUpdatedAt: new Date().toISOString()
+  };
+  await saveBotProfile(updated);
+  return updated;
+}
+
+export async function setRepositoryRoots(repositoryRoots: string[]): Promise<BotProfile> {
+  const profile = await loadBotProfile();
+  const updated: BotProfile = {
+    ...profile,
+    repositoryRoots: repositoryRoots.map((root) => root.trim()).filter(Boolean).slice(0, 10),
     lastUpdatedAt: new Date().toISOString()
   };
   await saveBotProfile(updated);

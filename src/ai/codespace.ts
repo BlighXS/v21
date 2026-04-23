@@ -11,6 +11,7 @@ import { logger } from "../utils/logger.js";
 const execAsync = promisify(exec);
 
 export const CODESPACE_DIR = path.resolve(process.cwd(), "src", "fawers_codespaces");
+export const PROJECT_ROOT = process.cwd();
 
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const FETCH_TIMEOUT_MS = 12_000;
@@ -152,6 +153,25 @@ export async function csListFiles(subDir = "."): Promise<string> {
   } catch {
     const entries = await readdir(full).catch(() => [] as string[]);
     return `[Arquivos em codespace/]\n${entries.join("\n") || "(vazio)"}`;
+  }
+}
+
+export async function csListProjectFiles(subDir = ".", maxDepth = 6): Promise<string> {
+  const full = path.resolve(PROJECT_ROOT, subDir);
+  if (!existsSync(full)) return `Diretório não encontrado: \`${subDir}\``;
+  try {
+    const { stdout } = await execAsync(
+      `find . -maxdepth ${Math.max(1, Math.min(maxDepth, 12))} -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' | sort`,
+      {
+        cwd: full,
+        timeout: 5000,
+        shell: "/bin/bash",
+      }
+    );
+    return `[Arquivos do projeto em ${subDir === "." ? "." : subDir}]\n${stdout.trim() || "(vazio)"}`;
+  } catch {
+    const entries = await readdir(full).catch(() => [] as string[]);
+    return `[Arquivos do projeto]\n${entries.join("\n") || "(vazio)"}`;
   }
 }
 
