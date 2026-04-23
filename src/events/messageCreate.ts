@@ -279,7 +279,6 @@ async function handleFreeMode(message: import("discord.js").Message): Promise<bo
   const prefix = config.PREFIX;
   const content = message.content.trim();
 
-  // Let prefix commands be handled normally (don't intercept them here)
   if (content.startsWith(prefix)) return false;
 
   try {
