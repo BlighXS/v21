@@ -432,18 +432,34 @@ async function executeCsSendFile(message: Message, action: Extract<FwpAction, { 
 
 async function executeReadSourceFile(
   _message: Message,
-  _action: Extract<FwpAction, { type: "read_source_file" }>,
-  _pendingReads: FwpFileRead[]
+  action: Extract<FwpAction, { type: "read_source_file" }>,
+  pendingReads: FwpFileRead[]
 ): Promise<string> {
-  return "Acesso ao código-fonte removido do Discord. Use o ChatBOT no site FAW_HUB para gerenciar o código.";
+  if (!action.path?.trim()) return "read_source_file: path não fornecido.";
+  try {
+    const content = await readSourceFile(action.path.trim(), action.fromLine, action.toLine);
+    pendingReads.push({ path: action.path.trim(), content });
+    const preview = content.length > 1200 ? content.slice(0, 1200) + "\n...[truncado]" : content;
+    return `Lido (modo só-leitura): \`${action.path.trim()}\`\n\`\`\`\n${preview}\n\`\`\``;
+  } catch (err) {
+    return `read_source_file: ${err instanceof Error ? err.message : String(err)}`;
+  }
 }
 
 async function executeWriteSourceFile(_message: Message, _action: Extract<FwpAction, { type: "write_source_file" }>): Promise<string> {
-  return "Acesso ao código-fonte removido do Discord. Use o ChatBOT no site FAW_HUB para gerenciar o código.";
+  return "❌ Escrita no código-fonte do bot está BLOQUEADA. Você só pode editar arquivos dentro de `src/fawers_codespaces/` via `cs_write_file`. Para sugerir mudanças no código principal, descreva-as ao dono — ele aplica.";
 }
 
-async function executeListSourceFiles(_message: Message, _action: Extract<FwpAction, { type: "list_source_files" }>): Promise<string> {
-  return "Acesso ao código-fonte removido do Discord. Use o ChatBOT no site FAW_HUB para gerenciar o código.";
+async function executeListSourceFiles(_message: Message, action: Extract<FwpAction, { type: "list_source_files" }>): Promise<string> {
+  try {
+    const dir = action.dir?.trim() || ".";
+    const files = await listSourceFiles(dir);
+    const out = files.join("\n");
+    const preview = out.length > 4000 ? out.slice(0, 4000) + "\n...[truncado]" : out;
+    return `[Arquivos em ${dir}]\n\`\`\`\n${preview || "(vazio)"}\n\`\`\``;
+  } catch (err) {
+    return `list_source_files: ${err instanceof Error ? err.message : String(err)}`;
+  }
 }
 
 async function executeMuteMember(message: Message, action: Extract<FwpAction, { type: "mute_member" }>): Promise<string> {

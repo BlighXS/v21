@@ -93,13 +93,32 @@ export async function getSourceTree(): Promise<string> {
   const srcDir = path.join(ROOT, "src");
   const artifactsDir = path.join(ROOT, "artifacts");
   const libDir = path.join(ROOT, "lib");
+  const scriptsDir = path.join(ROOT, "scripts");
 
   const srcLines = await walkDir(srcDir, "  ");
   const artifactsLines = await walkDir(artifactsDir, "  ").catch(() => []);
   const libLines = await walkDir(libDir, "  ").catch(() => []);
+  const scriptsLines = await walkDir(scriptsDir, "  ").catch(() => []);
+
+  // Top-level files (package.json, configs, replit.md etc) — sem descer em pastas
+  const rootFiles: string[] = [];
+  try {
+    const entries = await readdir(ROOT);
+    entries.sort();
+    for (const e of entries) {
+      if (e.startsWith(".") || e === "node_modules") continue;
+      try {
+        const s = await stat(path.join(ROOT, e));
+        if (s.isFile()) rootFiles.push(`  ${e}`);
+      } catch {}
+    }
+  } catch {}
 
   const sections = [
-    "[ESTRUTURA DO CÓDIGO FONTE — src/]",
+    "[ESTRUTURA DO PROJETO — RAIZ]",
+    ...rootFiles,
+    "",
+    "[CÓDIGO FONTE — src/]",
     ...srcLines,
   ];
 
@@ -109,6 +128,10 @@ export async function getSourceTree(): Promise<string> {
 
   if (libLines.length > 0) {
     sections.push("", "[LIB — bibliotecas compartilhadas]", ...libLines);
+  }
+
+  if (scriptsLines.length > 0) {
+    sections.push("", "[SCRIPTS — utilitários de manutenção]", ...scriptsLines);
   }
 
   return sections.join("\n");
