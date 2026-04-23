@@ -1,26 +1,6 @@
 [
   {
     "role": "user",
-    "content": "[Canal: #cmd | BlightFW </> (<@892469618063589387>)]: agora faça pra fazerem o quiz numa mensagem pequena la no caanal de quiz",
-    "timestamp": "2026-04-23T01:50:31.363Z"
-  },
-  {
-    "role": "assistant",
-    "content": "[FWP_ACTION]{\"type\":\"send_message\",\"channel\":\"quiz-tester\",\"content\":\"🧪 **Quizzes de Cargo**\\n\\nClique no botão da trilha pra iniciar seu quiz em uma **thread privada**:\\n- Reverse Engineer (mín: 70%)\\n- CTF Player (mín: 65%)\\n- Malware Lab (mín: 80%)\\n\\nSe não aparecer o painel com botões, fala comigo.\"}[/FWP_ACTION]",
-    "timestamp": "2026-04-23T01:50:31.363Z"
-  },
-  {
-    "role": "user",
-    "content": "[Canal: #cmd | BlightFW </> (<@892469618063589387>)]: mova os quiz para 1493062369285505205 essa categoria",
-    "timestamp": "2026-04-23T01:51:20.924Z"
-  },
-  {
-    "role": "assistant",
-    "content": "[FWP_ACTION]{\"actions\":[{\"type\":\"move_channel\",\"channelId\":\"1496685957452398826\",\"categoryId\":\"1493062369285505205\",\"reason\":\"Mover quiz-tester para categoria FAW\"},{\"type\":\"move_channel\",\"channelId\":\"1496685958144327711\",\"categoryId\":\"1493062369285505205\",\"reason\":\"Mover quiz-resultados para categoria FAW\"}]}[/FWP_ACTION]",
-    "timestamp": "2026-04-23T01:51:20.924Z"
-  },
-  {
-    "role": "user",
     "content": "[Canal: #cmd | BlightFW </> (<@892469618063589387>)]: oi",
     "timestamp": "2026-04-23T04:30:53.776Z"
   },
@@ -118,5 +98,25 @@
     "role": "assistant",
     "content": "De boa demais, chefe ⚙️✨ e você? Quer que eu ajuste mais alguma permissão/lock ou organize mais algum canal?",
     "timestamp": "2026-04-23T04:41:15.027Z"
+  },
+  {
+    "role": "user",
+    "content": "[Canal: #cmd | BlightFW </> (<@892469618063589387>)]: quero que limpe o canal atual inteiro",
+    "timestamp": "2026-04-23T04:41:28.671Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Chefe, pra “limpar o canal inteiro” eu preciso do **ID das mensagens** (o FWP só apaga por `messageId`, não tem purge em massa por canal).\n\nMe manda:\n- o **link da primeira/última mensagem** do range (ou alguns links), **ou**\n- diz “apaga as últimas X mensagens” que eu vou te pedindo os IDs conforme você for copiando os links aqui.",
+    "timestamp": "2026-04-23T04:41:28.671Z"
+  },
+  {
+    "role": "user",
+    "content": "[Canal: #cmd | BlightFW </> (<@892469618063589387>)]: reiniciar",
+    "timestamp": "2026-04-23T04:43:53.609Z"
+  },
+  {
+    "role": "assistant",
+    "content": "[FWP_ACTION]{\"type\":\"restart_self\"}[/FWP_ACTION]",
+    "timestamp": "2026-04-23T04:43:53.609Z"
   }
 ]
