@@ -1,7 +1,7 @@
-{pkgs}: {
+{ pkgs }: {
   deps = [
     pkgs.wget
-    pkgs.zulu23
+    pkgs.openjdk8
     pkgs.ollama
     pkgs.unzip
   ];
