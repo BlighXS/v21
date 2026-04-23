@@ -2,9 +2,10 @@ import type { AIProvider } from "./providerConfig.js";
 import { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } from "./gemini.js";
 import { queryOpenAI } from "./openai.js";
 import { queryDeepSeek } from "./deepseek.js";
+import { queryAnthropic } from "./anthropic.js";
 import { logger } from "../utils/logger.js";
 
-const CLOUD_CHAIN: AIProvider[] = ["gemini-v3", "deepseek-v5", "gemini", "openai-v4"];
+const CLOUD_CHAIN: AIProvider[] = ["gemini-v3", "anthropic", "deepseek-v5", "gemini", "openai-v4"];
 
 function isContextError(err: unknown): boolean {
   const msg = String(err).toLowerCase();
@@ -55,6 +56,8 @@ async function queryWithProvider(
       return queryOpenAI(systemPrompt, memoryKey, userQuery);
     case "deepseek-v5":
       return queryDeepSeek(systemPrompt, memoryKey, userQuery);
+    case "anthropic":
+      return queryAnthropic(systemPrompt, memoryKey, userQuery);
     default:
       throw new Error(`Provider não suportado no fallback: ${provider}`);
   }
@@ -66,9 +69,12 @@ export async function queryWithFallback(
   memoryKey: string,
   userQuery: string
 ): Promise<string> {
-  const chain: AIProvider[] = primaryProvider === "ollama"
-    ? ["ollama", ...CLOUD_CHAIN]
-    : [primaryProvider, ...CLOUD_CHAIN.filter((p) => p !== primaryProvider), "ollama"];
+  // Ollama removido do fallback: nunca usar (modelo local muito ruim).
+  const effectivePrimary: AIProvider = primaryProvider === "ollama" ? "anthropic" : primaryProvider;
+  const chain: AIProvider[] = [
+    effectivePrimary,
+    ...CLOUD_CHAIN.filter((p) => p !== effectivePrimary),
+  ].filter((p) => p !== "ollama");
 
   let lastError: unknown;
 
@@ -82,8 +88,8 @@ export async function queryWithFallback(
     } catch (err) {
       lastError = err;
 
-      if (isQuotaError(err) && provider !== "ollama") {
-        logger.warn({ provider, err: String(err) }, "Fallback: limite/quota do cloud atingido, tentando Ollama local");
+      if (isQuotaError(err)) {
+        logger.warn({ provider, err: String(err) }, "Fallback: quota do cloud atingida, tentando próximo motor");
         continue;
       }
 
