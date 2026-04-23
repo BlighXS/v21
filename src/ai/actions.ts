@@ -34,7 +34,19 @@ type FwpAction =
   | { type: "cs_read_file"; path?: string }
   | { type: "cs_list_files"; dir?: string }
   | { type: "cs_send_file"; path?: string }
-  | { type: "cs_reload_commands" };
+  | { type: "cs_reload_commands" }
+  | { type: "create_role"; name?: string; color?: string | number; hoist?: boolean; mentionable?: boolean; permissions?: string[]; reason?: string }
+  | { type: "edit_role"; roleId?: string; role?: string; name?: string; color?: string | number; hoist?: boolean; mentionable?: boolean; permissions?: string[]; reason?: string }
+  | { type: "delete_role"; roleId?: string; role?: string; reason?: string }
+  | { type: "assign_role"; userId?: string; roleId?: string; role?: string; reason?: string }
+  | { type: "remove_role"; userId?: string; roleId?: string; role?: string; reason?: string }
+  | { type: "rename_channel"; channelId?: string; channel?: string; newName?: string; topic?: string; reason?: string }
+  | { type: "delete_channel"; channelId?: string; channel?: string; reason?: string }
+  | { type: "delete_category"; categoryId?: string; category?: string; deleteChildren?: boolean; reason?: string }
+  | { type: "set_nickname"; userId?: string; nickname?: string; reason?: string }
+  | { type: "unban_member"; userId?: string; reason?: string }
+  | { type: "pin_message"; channelId?: string; channel?: string; messageId?: string; reason?: string }
+  | { type: "delete_message"; channelId?: string; channel?: string; messageId?: string; reason?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text
@@ -460,6 +472,293 @@ async function executeListSourceFiles(_message: Message, action: Extract<FwpActi
   }
 }
 
+// =================== ROLES ===================
+
+function parseColor(input?: string | number): number | undefined {
+  if (input == null) return undefined;
+  if (typeof input === "number") return input;
+  const s = String(input).trim().replace(/^#/, "");
+  if (/^[0-9a-fA-F]{6}$/.test(s)) return parseInt(s, 16);
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+  return undefined;
+}
+
+function parsePermissions(perms?: string[]): bigint | undefined {
+  if (!perms || perms.length === 0) return undefined;
+  let bits = 0n;
+  for (const p of perms) {
+    const key = p.trim();
+    if (!key) continue;
+    const flag = (PermissionsBitField.Flags as Record<string, bigint>)[key];
+    if (typeof flag === "bigint") bits |= flag;
+  }
+  return bits === 0n ? undefined : bits;
+}
+
+function findRole(guild: Guild, roleId?: string, roleName?: string) {
+  if (roleId) {
+    const byId = guild.roles.cache.get(roleId.replace(/[<@&>]/g, "").trim());
+    if (byId) return byId;
+  }
+  if (!roleName?.trim()) return null;
+  const wanted = roleName.trim().toLowerCase();
+  return guild.roles.cache.find((r) => r.name.toLowerCase() === wanted) ?? null;
+}
+
+async function ensureCanManageRoles(message: Message): Promise<{ error: string } | { guild: Guild }> {
+  const guild = getTargetGuild(message);
+  if (!guild) return { error: "nenhum servidor encontrado." };
+  if (!canModerate(message)) return { error: "sem permissão. Só o dono ou admins podem mexer com cargos." };
+  const me = guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return { error: "o bot não tem permissão Gerenciar Cargos." };
+  return { guild };
+}
+
+async function executeCreateRole(message: Message, action: Extract<FwpAction, { type: "create_role" }>): Promise<string> {
+  const check = await ensureCanManageRoles(message);
+  if ("error" in check) return `Não criei cargo: ${check.error}`;
+  const guild = check.guild;
+  const name = (action.name?.trim() || "Novo Cargo").slice(0, 100);
+  try {
+    const role = await guild.roles.create({
+      name,
+      color: parseColor(action.color),
+      hoist: action.hoist ?? false,
+      mentionable: action.mentionable ?? false,
+      permissions: parsePermissions(action.permissions),
+      reason: action.reason || `Cargo criado via FWP por ${message.author.tag}`
+    });
+    await recordMessageEvent("ai_action", message, `Cargo criado via FWP: ${role.name} (${role.id})`, { action: "create_role", roleId: role.id });
+    return `Cargo criado: <@&${role.id}> (\`${role.name}\`).`;
+  } catch (err) {
+    return `Não consegui criar cargo: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeEditRole(message: Message, action: Extract<FwpAction, { type: "edit_role" }>): Promise<string> {
+  const check = await ensureCanManageRoles(message);
+  if ("error" in check) return `Não editei cargo: ${check.error}`;
+  const guild = check.guild;
+  const role = findRole(guild, action.roleId, action.role);
+  if (!role) return `Cargo não encontrado: \`${action.roleId || action.role || "?"}\`.`;
+  const me = guild.members.me;
+  if (me && role.position >= (me.roles.highest?.position ?? 0)) {
+    return `Não consegui editar cargo: \`${role.name}\` está acima do meu maior cargo.`;
+  }
+  try {
+    const patch: Record<string, unknown> = {};
+    if (action.name?.trim()) patch.name = action.name.trim().slice(0, 100);
+    const c = parseColor(action.color);
+    if (c !== undefined) patch.color = c;
+    if (action.hoist !== undefined) patch.hoist = action.hoist;
+    if (action.mentionable !== undefined) patch.mentionable = action.mentionable;
+    const perms = parsePermissions(action.permissions);
+    if (perms !== undefined) patch.permissions = perms;
+    const updated = await role.edit({ ...patch, reason: action.reason || `Editado via FWP por ${message.author.tag}` });
+    await recordMessageEvent("ai_action", message, `Cargo editado via FWP: ${updated.name} (${updated.id})`, { action: "edit_role", roleId: updated.id, patch: Object.keys(patch) });
+    return `Cargo atualizado: <@&${updated.id}>.`;
+  } catch (err) {
+    return `Não consegui editar cargo: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeDeleteRole(message: Message, action: Extract<FwpAction, { type: "delete_role" }>): Promise<string> {
+  const check = await ensureCanManageRoles(message);
+  if ("error" in check) return `Não deletei cargo: ${check.error}`;
+  const role = findRole(check.guild, action.roleId, action.role);
+  if (!role) return `Cargo não encontrado: \`${action.roleId || action.role || "?"}\`.`;
+  if (role.managed || role.id === check.guild.id) return "Não posso deletar esse cargo (gerenciado/sistema).";
+  try {
+    const name = role.name;
+    await role.delete(action.reason || `Deletado via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Cargo deletado via FWP: ${name}`, { action: "delete_role", roleId: role.id });
+    return `Cargo **${name}** deletado.`;
+  } catch (err) {
+    return `Não consegui deletar cargo: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeAssignRole(message: Message, action: Extract<FwpAction, { type: "assign_role" }>): Promise<string> {
+  const check = await ensureCanManageRoles(message);
+  if ("error" in check) return `Não atribuí cargo: ${check.error}`;
+  const guild = check.guild;
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  const targetId = rawId || message.mentions.users.filter(u => u.id !== message.client.user?.id).first()?.id;
+  if (!targetId) return "Não atribuí cargo: nenhum usuário informado.";
+  const role = findRole(guild, action.roleId, action.role);
+  if (!role) return `Cargo não encontrado: \`${action.roleId || action.role || "?"}\`.`;
+  try {
+    const member = await guild.members.fetch(targetId);
+    await member.roles.add(role.id, action.reason || `Cargo atribuído via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Cargo ${role.name} atribuído a ${member.user.tag}`, { action: "assign_role", roleId: role.id, targetId });
+    return `Cargo <@&${role.id}> dado a **${member.user.tag}**.`;
+  } catch (err) {
+    return `Não consegui atribuir cargo: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeRemoveRole(message: Message, action: Extract<FwpAction, { type: "remove_role" }>): Promise<string> {
+  const check = await ensureCanManageRoles(message);
+  if ("error" in check) return `Não removi cargo: ${check.error}`;
+  const guild = check.guild;
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  const targetId = rawId || message.mentions.users.filter(u => u.id !== message.client.user?.id).first()?.id;
+  if (!targetId) return "Não removi cargo: nenhum usuário informado.";
+  const role = findRole(guild, action.roleId, action.role);
+  if (!role) return `Cargo não encontrado: \`${action.roleId || action.role || "?"}\`.`;
+  try {
+    const member = await guild.members.fetch(targetId);
+    await member.roles.remove(role.id, action.reason || `Cargo removido via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Cargo ${role.name} removido de ${member.user.tag}`, { action: "remove_role", roleId: role.id, targetId });
+    return `Cargo <@&${role.id}> removido de **${member.user.tag}**.`;
+  } catch (err) {
+    return `Não consegui remover cargo: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+// =================== CHANNELS extra ===================
+
+async function executeRenameChannel(message: Message, action: Extract<FwpAction, { type: "rename_channel" }>): Promise<string> {
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não renomeei canal: ${check.error}`;
+  const channel = findChannel(check.guild, action.channel, action.channelId);
+  if (!channel) return `Canal não encontrado: \`${action.channelId || action.channel || "?"}\`.`;
+  try {
+    const patch: Record<string, unknown> = {};
+    if (action.newName?.trim()) {
+      patch.name = channel.type === ChannelType.GuildCategory
+        ? normalizeCategoryName(action.newName)
+        : normalizeChannelName(action.newName);
+    }
+    if (action.topic !== undefined && "setTopic" in channel) {
+      patch.topic = action.topic.slice(0, 1024);
+    }
+    if (Object.keys(patch).length === 0) return "Não renomeei canal: nada a alterar.";
+    const updated = await (channel as any).edit({ ...patch, reason: action.reason || `Editado via FWP por ${message.author.tag}` });
+    await recordMessageEvent("ai_action", message, `Canal editado via FWP: ${updated.name} (${updated.id})`, { action: "rename_channel", channelId: updated.id, patch: Object.keys(patch) });
+    return `Canal atualizado: <#${updated.id}>.`;
+  } catch (err) {
+    return `Não consegui renomear canal: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeDeleteChannel(message: Message, action: Extract<FwpAction, { type: "delete_channel" }>): Promise<string> {
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não deletei canal: ${check.error}`;
+  const channel = findChannel(check.guild, action.channel, action.channelId);
+  if (!channel) return `Canal não encontrado: \`${action.channelId || action.channel || "?"}\`.`;
+  try {
+    const name = channel.name;
+    await channel.delete(action.reason || `Deletado via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Canal deletado via FWP: ${name}`, { action: "delete_channel", channelId: channel.id });
+    return `Canal **${name}** deletado.`;
+  } catch (err) {
+    return `Não consegui deletar canal: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeDeleteCategory(message: Message, action: Extract<FwpAction, { type: "delete_category" }>): Promise<string> {
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não deletei categoria: ${check.error}`;
+  const guild = check.guild;
+  const cat = action.categoryId
+    ? guild.channels.cache.get(action.categoryId)
+    : action.category
+      ? guild.channels.cache.find((c) => c.type === ChannelType.GuildCategory && comparableName(c.name) === comparableName(action.category!))
+      : null;
+  if (!cat || cat.type !== ChannelType.GuildCategory) return `Categoria não encontrada.`;
+  try {
+    const name = cat.name;
+    if (action.deleteChildren) {
+      const children = guild.channels.cache.filter((c) => "parentId" in c && c.parentId === cat.id);
+      for (const child of children.values()) {
+        await child.delete(action.reason || `Deletado em cascata via FWP por ${message.author.tag}`).catch(() => {});
+      }
+    }
+    await cat.delete(action.reason || `Deletado via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Categoria deletada via FWP: ${name}`, { action: "delete_category", categoryId: cat.id, deleteChildren: action.deleteChildren });
+    return `Categoria **${name}** deletada${action.deleteChildren ? " (com canais filhos)" : ""}.`;
+  } catch (err) {
+    return `Não consegui deletar categoria: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeSetNickname(message: Message, action: Extract<FwpAction, { type: "set_nickname" }>): Promise<string> {
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não troquei apelido: nenhum servidor encontrado.";
+  if (!canModerate(message)) return "Não troquei apelido: sem permissão.";
+  const me = guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.ManageNicknames)) return "Não troquei apelido: bot sem permissão Gerenciar Apelidos.";
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  const targetId = rawId || message.mentions.users.filter(u => u.id !== message.client.user?.id).first()?.id;
+  if (!targetId) return "Não troquei apelido: nenhum usuário informado.";
+  try {
+    const member = await guild.members.fetch(targetId);
+    await member.setNickname((action.nickname ?? "").slice(0, 32) || null, action.reason || `Apelido alterado via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Apelido alterado via FWP: ${member.user.tag} -> ${action.nickname ?? "(removido)"}`, { action: "set_nickname", targetId });
+    return `Apelido de **${member.user.tag}** atualizado para \`${action.nickname || "(padrão)"}\`.`;
+  } catch (err) {
+    return `Não consegui mudar apelido: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeUnbanMember(message: Message, action: Extract<FwpAction, { type: "unban_member" }>): Promise<string> {
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não desbanei: nenhum servidor.";
+  if (!canModerate(message)) return "Não desbanei: sem permissão.";
+  const me = guild.members.me;
+  if (!me?.permissions.has(PermissionsBitField.Flags.BanMembers)) return "Não desbanei: bot sem permissão Banir Membros.";
+  const rawId = action.userId?.replace(/[<@!>]/g, "").trim();
+  if (!rawId) return "Não desbanei: nenhum userId.";
+  try {
+    await guild.bans.remove(rawId, action.reason || `Desbanido via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Desban executado via FWP: ${rawId}`, { action: "unban_member", targetId: rawId });
+    return `Usuário \`${rawId}\` desbanido.`;
+  } catch (err) {
+    return `Não consegui desbanir: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executePinMessage(message: Message, action: Extract<FwpAction, { type: "pin_message" }>): Promise<string> {
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não fixei mensagem: nenhum servidor.";
+  if (!canModerate(message)) return "Não fixei mensagem: sem permissão.";
+  if (!action.messageId?.trim()) return "Não fixei mensagem: messageId não informado.";
+  let channel: any = null;
+  if (action.channelId) channel = guild.channels.cache.get(action.channelId) ?? null;
+  else if (action.channel) channel = guild.channels.cache.find((c) => comparableName(c.name) === comparableName(action.channel!)) ?? null;
+  else channel = message.channel;
+  if (!channel?.isTextBased?.()) return "Canal alvo inválido para fixar mensagem.";
+  try {
+    const msg = await channel.messages.fetch(action.messageId.trim());
+    await msg.pin(action.reason || `Fixada via FWP por ${message.author.tag}`);
+    await recordMessageEvent("ai_action", message, `Mensagem fixada: ${action.messageId} em #${channel.name}`, { action: "pin_message", channelId: channel.id, messageId: action.messageId });
+    return `Mensagem fixada em <#${channel.id}>.`;
+  } catch (err) {
+    return `Não consegui fixar mensagem: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function executeDeleteMessage(message: Message, action: Extract<FwpAction, { type: "delete_message" }>): Promise<string> {
+  const guild = getTargetGuild(message);
+  if (!guild) return "Não deletei mensagem: nenhum servidor.";
+  if (!canModerate(message)) return "Não deletei mensagem: sem permissão.";
+  if (!action.messageId?.trim()) return "Não deletei mensagem: messageId não informado.";
+  let channel: any = null;
+  if (action.channelId) channel = guild.channels.cache.get(action.channelId) ?? null;
+  else if (action.channel) channel = guild.channels.cache.find((c) => comparableName(c.name) === comparableName(action.channel!)) ?? null;
+  else channel = message.channel;
+  if (!channel?.isTextBased?.()) return "Canal alvo inválido para deletar mensagem.";
+  try {
+    const msg = await channel.messages.fetch(action.messageId.trim());
+    await msg.delete();
+    await recordMessageEvent("ai_action", message, `Mensagem deletada: ${action.messageId} em #${channel.name}`, { action: "delete_message", channelId: channel.id, messageId: action.messageId });
+    return `Mensagem deletada em <#${channel.id}>.`;
+  } catch (err) {
+    return `Não consegui deletar mensagem: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 async function executeMuteMember(message: Message, action: Extract<FwpAction, { type: "mute_member" }>): Promise<string> {
   const guild = getTargetGuild(message);
   if (!guild) return "Não executei mute: nenhum servidor encontrado.";
@@ -712,7 +1011,20 @@ export async function executeFwpActions(message: Message, response: string): Pro
         continue;
       }
 
-      reports.push(`Ação FWP ignorada: tipo desconhecido (${String(action.type)}).`);
+      if (action.type === "create_role") { reports.push(await executeCreateRole(message, action)); continue; }
+      if (action.type === "edit_role") { reports.push(await executeEditRole(message, action)); continue; }
+      if (action.type === "delete_role") { reports.push(await executeDeleteRole(message, action)); continue; }
+      if (action.type === "assign_role") { reports.push(await executeAssignRole(message, action)); continue; }
+      if (action.type === "remove_role") { reports.push(await executeRemoveRole(message, action)); continue; }
+      if (action.type === "rename_channel") { reports.push(await executeRenameChannel(message, action)); continue; }
+      if (action.type === "delete_channel") { reports.push(await executeDeleteChannel(message, action)); continue; }
+      if (action.type === "delete_category") { reports.push(await executeDeleteCategory(message, action)); continue; }
+      if (action.type === "set_nickname") { reports.push(await executeSetNickname(message, action)); continue; }
+      if (action.type === "unban_member") { reports.push(await executeUnbanMember(message, action)); continue; }
+      if (action.type === "pin_message") { reports.push(await executePinMessage(message, action)); continue; }
+      if (action.type === "delete_message") { reports.push(await executeDeleteMessage(message, action)); continue; }
+
+      reports.push(`Ação FWP ignorada: tipo desconhecido (${String((action as { type?: string }).type)}).`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "erro desconhecido";
       const stack = error instanceof Error ? error.stack?.slice(0, 500) : undefined;
