@@ -47,7 +47,7 @@ task = "shell.exec"
 args = "OLLAMA_HOST=0.0.0.0:11434 ollama serve"
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
 
 [postMerge]
