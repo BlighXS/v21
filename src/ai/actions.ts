@@ -46,7 +46,8 @@ type FwpAction =
   | { type: "set_nickname"; userId?: string; nickname?: string; reason?: string }
   | { type: "unban_member"; userId?: string; reason?: string }
   | { type: "pin_message"; channelId?: string; channel?: string; messageId?: string; reason?: string }
-  | { type: "delete_message"; channelId?: string; channel?: string; messageId?: string; reason?: string };
+  | { type: "delete_message"; channelId?: string; channel?: string; messageId?: string; reason?: string }
+  | { type: "set_channel_permissions"; channelId?: string; channel?: string; targetType?: "role" | "member"; targetId?: string; target?: string; allow?: string[]; deny?: string[]; clear?: string[]; reason?: string };
 
 export function stripFwpActionBlocks(text: string): string {
   return text
@@ -759,6 +760,63 @@ async function executeDeleteMessage(message: Message, action: Extract<FwpAction,
   }
 }
 
+async function executeSetChannelPermissions(message: Message, action: Extract<FwpAction, { type: "set_channel_permissions" }>): Promise<string> {
+  const check = await ensureCanManageChannels(message);
+  if ("error" in check) return `Não defini permissões: ${check.error}`;
+  const guild = check.guild;
+  const channel = findChannel(guild, action.channel, action.channelId);
+  if (!channel) return `Canal não encontrado: \`${action.channelId || action.channel || "?"}\`.`;
+  if (!("permissionOverwrites" in channel)) return "Esse canal não suporta overwrites de permissão.";
+
+  // Resolve target id (role or member). Default = role.
+  const kind = action.targetType ?? "role";
+  let targetId = action.targetId?.replace(/[<@!&>]/g, "").trim();
+  if (!targetId && action.target) {
+    if (kind === "role") {
+      const role = findRole(guild, undefined, action.target);
+      targetId = role?.id;
+    } else {
+      const wanted = action.target.toLowerCase();
+      const member = guild.members.cache.find((m) => m.user.username.toLowerCase() === wanted || m.displayName.toLowerCase() === wanted);
+      targetId = member?.id;
+    }
+  }
+  if (!targetId) return "Não defini permissões: alvo (cargo/membro) não identificado.";
+
+  const allow = parsePermissions(action.allow);
+  const deny = parsePermissions(action.deny);
+  const clear = action.clear?.map((p) => (PermissionsBitField.Flags as Record<string, bigint>)[p.trim()]).filter((b): b is bigint => typeof b === "bigint") ?? [];
+
+  try {
+    const overwriteOptions: Record<string, boolean | null> = {};
+    if (allow) {
+      for (const [name, bit] of Object.entries(PermissionsBitField.Flags)) {
+        if ((allow & (bit as bigint)) !== 0n) overwriteOptions[name] = true;
+      }
+    }
+    if (deny) {
+      for (const [name, bit] of Object.entries(PermissionsBitField.Flags)) {
+        if ((deny & (bit as bigint)) !== 0n) overwriteOptions[name] = false;
+      }
+    }
+    for (const bit of clear) {
+      for (const [name, b] of Object.entries(PermissionsBitField.Flags)) {
+        if (b === bit) overwriteOptions[name] = null;
+      }
+    }
+    if (Object.keys(overwriteOptions).length === 0) return "Não defini permissões: nada para alterar (allow/deny/clear vazios).";
+
+    await (channel as any).permissionOverwrites.edit(targetId, overwriteOptions, {
+      reason: action.reason || `Permissões ajustadas via FWP por ${message.author.tag}`,
+      type: kind === "member" ? 1 : 0
+    });
+    await recordMessageEvent("ai_action", message, `Permissões do canal ${channel.name} atualizadas para ${kind} ${targetId}`, { action: "set_channel_permissions", channelId: channel.id, targetId, allow: action.allow, deny: action.deny, clear: action.clear });
+    return `Permissões de <#${channel.id}> ajustadas para ${kind === "role" ? `<@&${targetId}>` : `<@${targetId}>`}.`;
+  } catch (err) {
+    return `Não consegui ajustar permissões: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 async function executeMuteMember(message: Message, action: Extract<FwpAction, { type: "mute_member" }>): Promise<string> {
   const guild = getTargetGuild(message);
   if (!guild) return "Não executei mute: nenhum servidor encontrado.";
@@ -1023,6 +1081,7 @@ export async function executeFwpActions(message: Message, response: string): Pro
       if (action.type === "unban_member") { reports.push(await executeUnbanMember(message, action)); continue; }
       if (action.type === "pin_message") { reports.push(await executePinMessage(message, action)); continue; }
       if (action.type === "delete_message") { reports.push(await executeDeleteMessage(message, action)); continue; }
+      if (action.type === "set_channel_permissions") { reports.push(await executeSetChannelPermissions(message, action)); continue; }
 
       reports.push(`Ação FWP ignorada: tipo desconhecido (${String((action as { type?: string }).type)}).`);
     } catch (error) {
