@@ -1154,18 +1154,12 @@ const event: BotEvent = {
         }
 
         const finalResponse = allReports.length > 0 ? `${response}\n\n${allReports.join("\n")}` : response;
-        const embedChunks = chunkForDiscord(finalResponse, 4000);
-        const embed = buildEmbed("Fawers", embedChunks[0] ?? "", "action");
 
         await spinnerMsg.delete().catch(() => {});
-        await message.reply({ embeds: [embed], files });
-        // Se a resposta passou do limite do embed, manda o restante em mensagens normais quebradas
-        for (let i = 1; i < embedChunks.length; i++) {
-          const tail = chunkForDiscord(embedChunks[i], 1900);
-          for (let j = 0; j < tail.length; j++) {
-            await message.channel.send(`${tail[j]}\n*(parte ${i + j + 1}/${embedChunks.length + tail.length - 1})*`).catch(() => {});
-          }
-        }
+        await message.reply({
+          embeds: [buildEmbed("Fawers", finalResponse.slice(0, 4000), "action")],
+          files
+        });
         logger.info({ command: "fwp", durationMs: Date.now() - start, files: files.length }, "Fwp executado");
       } catch (error) {
         let msg = formatFwpError(error);
