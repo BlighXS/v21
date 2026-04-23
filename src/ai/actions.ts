@@ -439,8 +439,7 @@ async function executeReadSourceFile(
   try {
     const content = await readSourceFile(action.path.trim(), action.fromLine, action.toLine);
     pendingReads.push({ path: action.path.trim(), content });
-    const preview = content.length > 1200 ? content.slice(0, 1200) + "\n...[truncado]" : content;
-    return `Lido (modo só-leitura): \`${action.path.trim()}\`\n\`\`\`\n${preview}\n\`\`\``;
+    return `Lido (modo só-leitura): \`${action.path.trim()}\` — ${content.length} caracteres carregados no contexto da IA.`;
   } catch (err) {
     return `read_source_file: ${err instanceof Error ? err.message : String(err)}`;
   }
@@ -455,8 +454,7 @@ async function executeListSourceFiles(_message: Message, action: Extract<FwpActi
     const dir = action.dir?.trim() || ".";
     const files = await listSourceFiles(dir);
     const out = files.join("\n");
-    const preview = out.length > 4000 ? out.slice(0, 4000) + "\n...[truncado]" : out;
-    return `[Arquivos em ${dir}]\n\`\`\`\n${preview || "(vazio)"}\n\`\`\``;
+    return `[Arquivos em ${dir} — ${files.length} entradas]\n\`\`\`\n${out || "(vazio)"}\n\`\`\``;
   } catch (err) {
     return `list_source_files: ${err instanceof Error ? err.message : String(err)}`;
   }

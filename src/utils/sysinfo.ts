@@ -4,8 +4,8 @@ import path from "node:path";
 import { logger } from "./logger.js";
 
 const ROOT = process.cwd();
-const MAX_FILE_SIZE = 1024 * 1024 * 2; // 2MB
-const MAX_LINES = 5000;
+const MAX_FILE_SIZE = 1024 * 1024 * 50; // 50MB — sem cegueira
+const MAX_LINES = 200_000;
 
 export function getSystemInfo(): string {
   const totalMB = Math.round(os.totalmem() / 1024 / 1024);
@@ -46,7 +46,7 @@ function resolveSafePath(inputPath: string): string {
 }
 
 async function walkDir(dir: string, prefix = "", depth = 0): Promise<string[]> {
-  if (depth > 6) return []; // limite de profundidade
+  if (depth > 20) return []; // teto só pra evitar loop infinito por symlink
 
   const lines: string[] = [];
 
@@ -60,11 +60,16 @@ async function walkDir(dir: string, prefix = "", depth = 0): Promise<string[]> {
   entries.sort();
 
   for (const entry of entries) {
+    // Excluímos só o que não é código do projeto: dependências, caches e VCS.
+    // Tudo o que é fonte/config/asset segue visível.
     if (
-      entry.startsWith(".") ||
       entry === "node_modules" ||
-      entry === "dist" ||
-      entry === "__pycache__"
+      entry === ".git" ||
+      entry === "__pycache__" ||
+      entry === ".pnpm-store" ||
+      entry === ".cache" ||
+      entry === ".turbo" ||
+      entry === ".next"
     )
       continue;
 
