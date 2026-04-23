@@ -28,7 +28,7 @@ import { queryGemini, GEMINI_MODEL_V2, GEMINI_MODEL_V3 } from "../ai/gemini.js";
 import { queryOpenAI } from "../ai/openai.js";
 import { queryDeepSeek } from "../ai/deepseek.js";
 import { queryWithFallback } from "../ai/fallback.js";
-import { buildAutonomousSystemPrompt, buildMemberProfile, recordMemorialEvent, recordMessageEvent } from "../ai/memorial.js";
+import { buildAutonomousSystemPrompt, buildMemberProfile, buildOnlineMembersSnapshot, recordMemorialEvent, recordMessageEvent, resolveMembersFromText } from "../ai/memorial.js";
 import { executeFwpActions, stripFwpActionBlocks, buildFileReadFollowUp } from "../ai/actions.js";
 
 function canRestart(member: GuildMember): boolean {
@@ -1018,24 +1018,48 @@ const event: BotEvent = {
         : "[Via DM]";
       let fullQuery = `${channelCtx} ${userText}`;
 
-      // Injeta perfis dos usuários mencionados (presença, cargos, atividade)
-      if (message.mentions.users.size > 0 && message.guild) {
+      // Injeta perfis dos usuários mencionados E reconhecidos por nome/apelido
+      if (message.guild) {
         const profileLines: string[] = [];
+        const seen = new Set<string>();
+
+        const enrichAndPush = async (member: import("discord.js").GuildMember | null, label: string, fallback?: string) => {
+          if (!member) {
+            if (fallback) profileLines.push(fallback);
+            return;
+          }
+          if (seen.has(member.id)) return;
+          seen.add(member.id);
+          try { await member.user.fetch(true); } catch {}
+          profileLines.push(buildMemberProfile(member, label));
+        };
+
         for (const [, user] of message.mentions.users) {
           if (user.id === message.client.user?.id) continue;
-          try {
-            const member = await message.guild.members.fetch(user.id).catch(() => null);
-            if (member) {
-              profileLines.push(buildMemberProfile(member, `Mencionado`));
-            } else {
-              profileLines.push(`Mencionado: ${user.username} (ID: ${user.id}) — não encontrado no servidor`);
-            }
-          } catch {
-            profileLines.push(`Mencionado: ${user.username} (ID: ${user.id})`);
-          }
+          const member = await message.guild.members.fetch(user.id).catch(() => null);
+          await enrichAndPush(member, "Mencionado", `Mencionado: ${user.username} (ID: ${user.id}) — não encontrado no servidor`);
         }
+
+        // Reconhecimento por apelido / nome no texto da pergunta
+        try {
+          if (message.guild.members.cache.size < message.guild.memberCount) {
+            await message.guild.members.fetch().catch(() => {});
+          }
+        } catch {}
+        const resolved = resolveMembersFromText(message.guild, userText, 5);
+        for (const m of resolved) {
+          if (m.id === message.author.id) continue;
+          await enrichAndPush(m, "Reconhecido por nome/apelido");
+        }
+
         if (profileLines.length > 0) {
-          fullQuery += `\n\n[Perfis dos usuários mencionados:\n${profileLines.join("\n")}]`;
+          fullQuery += `\n\n[Perfis de usuários relevantes (use estes dados para responder sobre eles):\n${profileLines.join("\n")}]`;
+        }
+
+        // Se a pergunta parecer ser sobre "o que cada um/todos estão fazendo", anexa snapshot online
+        if (/\b(cada|todos|todo mundo|ger[aá]l|online|fazendo|ouvindo|jogando|status)\b/i.test(userText)) {
+          const snap = buildOnlineMembersSnapshot(message.guild, 30);
+          if (snap) fullQuery += `\n\n[${snap}]`;
         }
       }
 

@@ -189,8 +189,29 @@ function activityTypeName(type: ActivityType): string {
   }
 }
 
+function describeActivity(a: NonNullable<GuildMember["presence"]>["activities"][number]): string {
+  if (a.type === ActivityType.Custom) {
+    const emoji = a.emoji?.name ? `${a.emoji.name} ` : "";
+    const text = a.state || a.details || "";
+    return `status customizado: ${emoji}${text}`.trim();
+  }
+  if (a.type === ActivityType.Listening && a.name === "Spotify") {
+    const song = a.details ?? "?";
+    const artist = a.state ?? "?";
+    const album = (a as { assets?: { largeText?: string } }).assets?.largeText ?? "";
+    return `ouvindo Spotify — "${song}" de ${artist}${album ? ` (álbum: ${album})` : ""}`;
+  }
+  const parts = [`${activityTypeName(a.type)} ${a.name}`];
+  if (a.details) parts.push(`— ${a.details}`);
+  if (a.state) parts.push(`(${a.state})`);
+  return parts.join(" ");
+}
+
 export function buildMemberProfile(member: GuildMember, label = "Usuário"): string {
-  const nick = member.nickname ? ` (apelido: ${member.nickname})` : "";
+  const nick = member.nickname ? ` (apelido no servidor: ${member.nickname})` : "";
+  const globalName = member.user.globalName && member.user.globalName !== member.user.username
+    ? ` (nome global: ${member.user.globalName})`
+    : "";
   const roles = member.roles.cache
     .filter((r) => r.name !== "@everyone")
     .sort((a, b) => b.position - a.position)
@@ -200,23 +221,97 @@ export function buildMemberProfile(member: GuildMember, label = "Usuário"): str
 
   const presence = member.presence;
   const status = presence?.status ?? "offline";
+  const clients = presence?.clientStatus
+    ? Object.keys(presence.clientStatus).join("/") || "?"
+    : "—";
 
-  const activities = (presence?.activities ?? [])
-    .map((a) => {
-      const parts = [`${activityTypeName(a.type)} ${a.name}`];
-      if (a.details) parts.push(`(${a.details}`);
-      if (a.state) parts.push(`— ${a.state})`);
-      else if (a.details) parts.push(")");
-      return parts.join(" ");
-    })
-    .join("; ") || "nenhuma atividade detectada";
+  const activitiesArr = presence?.activities ?? [];
+  const activities = activitiesArr.length > 0
+    ? activitiesArr.map(describeActivity).join("; ")
+    : "nenhuma atividade detectada";
+
+  const avatarUrl = member.user.displayAvatarURL({ size: 256, extension: "png" });
+  const memberAvatar = typeof member.displayAvatarURL === "function"
+    ? member.displayAvatarURL({ size: 256, extension: "png" })
+    : avatarUrl;
+  const banner = member.user.bannerURL?.({ size: 512, extension: "png" }) ?? null;
+  const accent = member.user.accentColor != null ? `#${member.user.accentColor.toString(16).padStart(6, "0")}` : null;
+  const joinedAt = member.joinedAt ? member.joinedAt.toISOString().slice(0, 10) : "desconhecido";
+  const createdAt = member.user.createdAt.toISOString().slice(0, 10);
 
   return [
-    `${label}: ${member.user.username}${nick} (ID: ${member.id})`,
-    `  Status: ${status}`,
+    `${label}: ${member.user.username}${globalName}${nick} (ID: ${member.id})`,
+    `  Status: ${status} | clientes: ${clients}`,
+    `  Atividade atual: ${activities}`,
     `  Cargos: ${roles}`,
-    `  Atividade atual: ${activities}`
-  ].join("\n");
+    `  Conta criada: ${createdAt} | entrou no servidor: ${joinedAt}`,
+    `  Avatar: ${memberAvatar}`,
+    banner ? `  Banner: ${banner}` : `  Banner: nenhum`,
+    accent ? `  Cor de destaque: ${accent}` : null,
+  ].filter(Boolean).join("\n");
+}
+
+const STOPWORDS = new Set([
+  "o","a","os","as","um","uma","de","do","da","dos","das","e","ou","que","qual","quais","como","onde","quando","por","para","pra","com","sem","no","na","nos","nas","em","ao","aos","à","às","se","foi","ser","está","esta","esse","essa","isso","isto","aquele","aquela","fwp","fawers","fawer","bot","ele","ela","eles","elas","você","voce","tu","eu","meu","minha","seu","sua","nosso","nossa","ta","tá","ta?","tá?","fazendo","ouvindo","jogando","assistindo","status","perfil","banner","foto","atividade","atividades","agora","hoje","cada","todos","todo","toda","todas","user","users","usuario","usuário","usuarios","usuários","membro","membros","aqui","ai","aí","la","lá"
+]);
+
+export function resolveMembersFromText(guild: Guild | null | undefined, text: string, limit = 5): GuildMember[] {
+  if (!guild || !text) return [];
+  const cleaned = text
+    .replace(/<@!?\d+>/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[^\p{L}\p{N}_\s]/gu, " ")
+    .toLowerCase();
+  const tokens = Array.from(new Set(
+    cleaned.split(/\s+/).filter((t) => t.length >= 3 && !STOPWORDS.has(t))
+  ));
+  if (tokens.length === 0) return [];
+
+  const members = guild.members.cache;
+  const scored: { member: GuildMember; score: number }[] = [];
+  for (const member of members.values()) {
+    if (member.user.bot) continue;
+    const candidates = [
+      member.user.username,
+      member.user.globalName ?? "",
+      member.nickname ?? "",
+    ].map((s) => s.toLowerCase()).filter(Boolean);
+    if (candidates.length === 0) continue;
+
+    let best = 0;
+    for (const tok of tokens) {
+      for (const cand of candidates) {
+        if (cand === tok) { best = Math.max(best, 100); continue; }
+        if (cand.startsWith(tok)) { best = Math.max(best, 70); continue; }
+        if (cand.includes(tok)) { best = Math.max(best, 40); continue; }
+        // alpha-only fuzzy: strip non-letters
+        const stripped = cand.replace(/[^a-z0-9]/g, "");
+        if (stripped && (stripped === tok || stripped.includes(tok))) {
+          best = Math.max(best, 30);
+        }
+      }
+    }
+    if (best >= 30) scored.push({ member, score: best });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.member);
+}
+
+export function buildOnlineMembersSnapshot(guild: Guild | null | undefined, limit = 25): string {
+  if (!guild) return "";
+  const lines: string[] = [];
+  for (const member of guild.members.cache.values()) {
+    if (member.user.bot) continue;
+    const presence = member.presence;
+    const status = presence?.status;
+    if (!status || status === "offline") continue;
+    const acts = (presence?.activities ?? []).map(describeActivity).join("; ");
+    const display = member.nickname || member.user.globalName || member.user.username;
+    lines.push(`- ${display} (@${member.user.username}, ID:${member.id}) [${status}]${acts ? ` → ${acts}` : ""}`);
+    if (lines.length >= limit) break;
+  }
+  if (lines.length === 0) return "Nenhum membro online detectado no cache (presença pode estar desativada).";
+  return `Membros online agora (até ${limit}):\n${lines.join("\n")}`;
 }
 
 export async function buildAutonomousSystemPrompt(basePrompt: string, message?: Message): Promise<string> {
